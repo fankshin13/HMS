@@ -1,0 +1,16 @@
+{
+  "name": "vuln-assessment",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "typecheck": "pnpm -C frontend typecheck && pnpm backend:typecheck",
+    "lint": "pnpm -C frontend lint && pnpm backend:lint",
+    "test": "pnpm -C frontend test && pnpm backend:test",
+    "build": "pnpm -C frontend build",
+    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
+    "backend:typecheck": "uv run --directory backend mypy",
+    "backend:lint": "uv run --directory backend ruff check . && uv run --directory backend ruff format --check .",
+    "backend:test": "uv run --directory backend pytest"
+  }
+}

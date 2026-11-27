@@ -40,5 +40,16 @@ TEST_DATABASE_URL=postgresql://<user>:<password>@localhost:5432/postgres pnpm ba
 ### DB 타입 생성
 마이그레이션을 적용한 로컬 DB 를 가리키는 `LOCAL_DATABASE_URL` 로 `pnpm db:types` 를 실행하면 `frontend/lib/database.types.ts` 가 갱신됩니다.
 
+## 로그인과 초대 (Supabase Auth 매직 링크)
+1. **첫 소유자 만들기**: `backend` 에서 실행하면 워크스페이스·소유자 계정과 소유자용 1회용 초대 링크(24시간)가 출력됩니다.
+   ```bash
+   DATABASE_URL=... INVITATION_TOKEN_SALT=... APP_URL=https://... uv run python -m scripts.provision_owner --tenant-name "보안팀" --owner-name "홍길동" --owner-email owner@example.com
+   ```
+2. **팀원 초대**: 소유자가 `/settings/team` 에서 이름·이메일·역할·유효기간(1~72시간)으로 링크를 만들고, 사내 메신저 등으로 직접 전달합니다. 미사용 링크는 철회할 수 있습니다.
+3. **참여**: 초대받은 사람이 링크를 열고 "참여"를 누르면 초대받은 이메일로 매직 링크가 발송됩니다. **같은 브라우저**에서 메일 링크를 열면 `/auth/callback` 이 세션을 만들고 초대를 수락합니다(1회용, 만료·철회·다른 이메일 계정은 거부).
+4. **재로그인**: `/auth/verify` 에서 이메일을 입력하면 기존 계정에만 매직 링크가 발송됩니다.
+
+Supabase 프로젝트 설정: Authentication → URL Configuration 의 Redirect URLs 에 `<APP_URL>/auth/callback` 을 추가하세요. 기본 메일 발송은 시간당 발송량 제한이 있으므로 운영 전 SMTP 를 설정해야 합니다.
+
 ## 환경 변수
 `.env.example`에 이름만 정리돼 있습니다. 값은 `.env`(커밋 금지) 또는 서버 측 시크릿 저장소에 둡니다.

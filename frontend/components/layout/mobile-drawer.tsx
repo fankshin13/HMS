@@ -8,7 +8,11 @@ import { NavList } from "./nav-list";
 const iconButton =
   "inline-flex size-11 items-center justify-center rounded-md text-foreground hover:bg-card";
 
-export function MobileDrawer() {
+export function MobileDrawer({
+  workspaceName,
+}: {
+  workspaceName: string | null;
+}) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const close = () => dialogRef.current?.close();
 
@@ -44,7 +48,7 @@ export function MobileDrawer() {
               <X aria-hidden="true" className="size-5" />
             </button>
           </div>
-          <WorkspaceBadge />
+          <WorkspaceBadge name={workspaceName} />
           <NavList onNavigate={close} />
         </div>
       </dialog>

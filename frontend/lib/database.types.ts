@@ -571,12 +571,47 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      accept_invitation: {
+        Args: { p_token_hash: string };
+        Returns: {
+          status: string;
+          tenant_id: string;
+        }[];
+      };
       apply_item_override: {
         Args: {
           p_item_result_id: string;
           p_new_status: Database["public"]["Enums"]["item_status"];
           p_reason: string;
         };
+        Returns: undefined;
+      };
+      create_invitation: {
+        Args: {
+          p_email: string;
+          p_name: string;
+          p_role: Database["public"]["Enums"]["user_role"];
+          p_tenant_id: string;
+          p_token_hash: string;
+          p_valid_hours: number;
+        };
+        Returns: {
+          expires_at: string;
+          invitation_id: string;
+        }[];
+      };
+      inspect_invitation: {
+        Args: { p_token_hash: string };
+        Returns: {
+          email: string;
+          role: Database["public"]["Enums"]["user_role"];
+          status: string;
+          tenant_name: string;
+          user_name: string;
+        }[];
+      };
+      revoke_invitation: {
+        Args: { p_invitation_id: string };
         Returns: undefined;
       };
     };

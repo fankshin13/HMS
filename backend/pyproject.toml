@@ -32,7 +32,7 @@ select = ["E", "W", "F", "I", "B", "UP", "ANN", "S", "SIM", "RUF"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
-files = ["app", "models", "tests"]
+files = ["app", "models", "scripts", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

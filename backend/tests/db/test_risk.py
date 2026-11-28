@@ -127,14 +127,24 @@ def test_override_back_to_vulnerable_recomputes_27(db: psycopg.Connection, score
         )
     assert Decimal(str(result["calculated_risk_score"])) == Decimal("27.00")
     assert result["vulnerable_items_count"] == 3
-    assert _count(db, "select count(*) from override_audit_logs") == 2
+    assert (
+        _count(
+            db, "select count(*) from override_audit_logs where tenant_id = %s", (scored.tenant,)
+        )
+        == 2
+    )
 
 
 def test_same_status_is_idempotent(db: psycopg.Connection, scored: Scored) -> None:
     with as_role(db, "authenticated", scored.operator):
         result = _override(db, scored.run, scored.result, "vulnerable", REASON)
     assert (result["changed"], result["audit_id"]) == (False, None)
-    assert _count(db, "select count(*) from override_audit_logs") == 0
+    assert (
+        _count(
+            db, "select count(*) from override_audit_logs where tenant_id = %s", (scored.tenant,)
+        )
+        == 0
+    )
 
 
 def test_item_must_belong_to_the_given_run(db: psycopg.Connection, scored: Scored) -> None:

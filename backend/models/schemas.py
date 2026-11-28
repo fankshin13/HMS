@@ -151,6 +151,7 @@ class AssessmentRun(Row):
     vulnerable_items_count: int = Field(ge=0)
     started_at: datetime | None
     completed_at: datetime | None
+    raw_logs_purged_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

@@ -7,6 +7,9 @@ dependencies = [
   "pydantic>=2.7",
   "psycopg[binary]>=3.2",
   "httpx>=0.27",
+  "python-docx>=1.2.0",
+  "weasyprint>=70.0",
+  "matplotlib>=3.11.2",
 ]
 
 [dependency-groups]
@@ -25,6 +28,8 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "UP", "ANN", "S", "SIM", "RUF"]
+# 보고서 문구의 곱셈 기호(위험 점수 = 중요도 × 등급)
+allowed-confusables = ["×"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101"]
@@ -32,7 +37,12 @@ select = ["E", "W", "F", "I", "B", "UP", "ANN", "S", "SIM", "RUF"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
-files = ["app", "models", "scripts", "tests"]
+files = ["app", "models", "modules", "scripts", "tests"]
+
+# WeasyPrint 는 타입 정보를 제공하지 않는다(사용 범위: HTML(string=...).write_pdf()).
+[[tool.mypy.overrides]]
+module = ["weasyprint", "weasyprint.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -41,4 +51,6 @@ filterwarnings = [
   "error",
   # starlette TestClient의 httpx 사용 중단 경고(상위 라이브러리 이슈). 대체 클라이언트 검증 후 제거.
   "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+  # WeasyPrint: 시스템에 libharfbuzz-subset 이 없을 때의 안내(글꼴 부분 포함은 기존 방식으로 동작). 배포 이미지에는 설치.
+  "ignore:HarfBuzz-Subset will be required:DeprecationWarning",
 ]

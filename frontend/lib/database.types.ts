@@ -610,6 +610,17 @@ export type Database = {
           user_name: string;
         }[];
       };
+      register_assessment_upload: {
+        Args: {
+          p_allow_duplicate?: boolean;
+          p_logs: Json;
+          p_run_id: string;
+          p_sha256: string;
+          p_tenant_id: string;
+          p_title: string;
+        };
+        Returns: Json;
+      };
       revoke_invitation: {
         Args: { p_invitation_id: string };
         Returns: undefined;

@@ -19,3 +19,17 @@ export const STATUS_LABELS = {
   invited: "초대됨",
   suspended: "정지",
 } as const;
+
+/** 바이트 수를 KB/MB 단위로 표시한다. */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Asia/Seoul 기준 오늘 날짜 (YYYY-MM-DD) */
+export function seoulToday(now = new Date()): string {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(
+    now,
+  );
+}

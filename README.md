@@ -51,5 +51,11 @@ TEST_DATABASE_URL=postgresql://<user>:<password>@localhost:5432/postgres pnpm ba
 
 Supabase 프로젝트 설정: Authentication → URL Configuration 의 Redirect URLs 에 `<APP_URL>/auth/callback` 을 추가하세요. 기본 메일 발송은 시간당 발송량 제한이 있으므로 운영 전 SMTP 를 설정해야 합니다.
 
+## 점검 스크립트와 업로드
+- 표준 점검 스크립트: `frontend/public/scripts/` (`kisa_check_linux.sh`, `kisa_check_windows.bat`). 읽기 전용으로 근거만 수집하며, 결과 파일 첫 줄은 `[START] OS=<Linux|Windows> HOSTNAME=<호스트명> ...`, 항목은 `==== <항목> BEGIN/END ====`, 마지막 줄은 `[END]` 형식입니다. 스크립트를 바꾸면 `SCRIPT_VERSION` 을 올리세요. 스크립트 센터(`/scripts`)의 체크섬은 파일에서 자동 계산됩니다.
+- Windows 배치 파일은 코드 페이지 문제를 피하려고 ASCII·CRLF 로만 작성합니다.
+- 업로드(`/assessments/new`): 브라우저 작업 스레드에서 압축 해제 → 사설 IP(RFC 1918)·개인 계정명을 가명(`MASKED_IP_001`, `MASKED_USER_001`)으로 치환 → 머리말 검사 후 전송합니다. 원본↔가명 대응표는 브라우저 밖으로 나가지 않습니다. 서버(`/api/assessments/upload`)는 다시 검사한 뒤 로그를 비공개 버킷 `diagnostic-raw/<tenant>/<run>/` 에 저장하고 `register_assessment_upload` 로 진단 차수·자산·로그를 등록합니다. 형식이 깨진 파일은 `partial_error` 로 격리되고 나머지는 정상 처리됩니다.
+- 제한: 업로드 50MB, 압축 해제 총량 200MB, 로그 파일 500개. 같은 파일을 10분 안에 다시 올리면 확인을 받습니다.
+
 ## 환경 변수
 `.env.example`에 이름만 정리돼 있습니다. 값은 `.env`(커밋 금지) 또는 서버 측 시크릿 저장소에 둡니다.

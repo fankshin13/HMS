@@ -52,7 +52,8 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
+  // /api 는 라우트에서 직접 인증한다. 프록시를 거치면 요청 본문이 10MB 까지만 버퍼링되어 업로드가 잘린다.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff2)$).*)",
+    "/((?!api/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|woff2)$).*)",
   ],
 };

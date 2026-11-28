@@ -73,5 +73,16 @@ Supabase 프로젝트 설정: Authentication → URL Configuration 의 Redirect 
 - 점검 항목 화면(`/assessments/<id>/items`): 위험 점수 높은 순 목록, 위험 요약, 판정 변경(owner·operator, 사유 5~1000자), 변경 이력. 변경은 `public.apply_item_override` 한 번의 트랜잭션으로 점수 재산정·감사 기록(수정·삭제 불가)·취약 건수 동기화를 처리합니다.
 - API: `POST /api/assessments/<id>/items/<itemId>/override`, `GET /api/assessments/<id>/items/<itemId>/audits`.
 
+## 3종 보고서 (backend/modules/renderer, /assessments/<id>/reports)
+- 한 번의 요청으로 「취약점 진단 상세 결과 보고서」, 「취약점 진단 결과 보고서」(경영진·관리자용 요약), 「위험평가 결과 및 조치계획서」를 DOCX·PDF 로 함께 만듭니다(6개 파일). 일부만 만들지 않습니다.
+- 구조: 워커가 DB 에서 결과를 읽어 `ReportData`(DTO)를 만들고 → `reports.py` 가 보고서별 중립 문서 블록을 구성 → `docx_builder.py`(python-docx)와 `pdf_builder.py`(WeasyPrint)가 같은 블록을 각각 그립니다. 조판 코어는 DB 를 직접 조회하지 않습니다.
+- 표 서식: DOCX 의 모든 표 행에 `cantSplit`, 머리글 행에 `tblHeader`(페이지마다 반복)·`keep_with_next`. PDF 는 행 분할 방지·머리글 반복.
+- 위험평가서 부록 A 에 수동 판정 변경 감사 이력(일시·호스트·항목·변경 전후·사유·변경자)을 싣습니다.
+- 대기열: `report_jobs`(queued → rendering → completed/failed). 진단 차수 상태와 분리되어, 조판이 실패해도 분석 결과는 그대로이며 재시도할 수 있습니다. 15분 넘게 멈춘 조판은 다시 선점합니다. 3종을 프로세스 3개로 동시에 조판합니다(50대 기준 약 40~50초).
+- 저장: 비공개 버킷 `reports/<tenant>/<run>/<type>.<format>`(쓰기는 워커만, 읽기는 테넌트 구성원). 보존 기한 24시간이 지나면 워커가 삭제합니다.
+- 제로 리텐션: 테넌트 설정이 켜져 있으면 owner·operator 가 ZIP 일괄 다운로드를 마친 뒤 확인을 거쳐 원본 로그를 영구 삭제합니다(`purge_raw_diagnostic_data`, 감사 기록 `purge_audit_logs`). 내려받지 않아도 보고서 생성 24시간 뒤 워커가 자동 파기합니다. 판정 결과와 보고서는 남습니다.
+- API: `POST /api/assessments/<id>/reports/generate[?force=true]`, `GET /api/assessments/<id>/reports`, `GET .../reports/<detailed|summary|risk_plan>/download?format=docx|pdf`, `GET .../reports/bundle/download`, `POST .../reports/purge-raw`.
+- 워커 실행 환경: pango·cairo·harfbuzz(가능하면 libharfbuzz-subset) 시스템 라이브러리, 한글 글꼴. `REPORT_FONT_DIR` 에 Pretendard-Regular.otf·Pretendard-Bold.otf 를 두면 PDF·차트에 사용하고, 없으면 시스템 한글 글꼴(Noto Sans CJK KR 등)을 씁니다. DOCX 는 '맑은 고딕'으로 표시됩니다.
+
 ## 환경 변수
 `.env.example`에 이름만 정리돼 있습니다. 값은 `.env`(커밋 금지) 또는 서버 측 시크릿 저장소에 둡니다.

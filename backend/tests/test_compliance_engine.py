@@ -26,8 +26,8 @@ def test_parser_reads_header_info_and_sections() -> None:
     assert (log.os_type, log.hostname, log.has_end) == ("linux", "web-01", True)
     assert log.info["DISTRO"] == ["Rocky Linux 9.4 (Blue Onyx)"]
     assert set(log.sections) == {r.section for r in RULES["linux"]}
-    assert len(log.sections) == 41
-    assert log.script_version == (1, 2, 0)
+    assert len(log.sections) == 67
+    assert log.script_version == (1, 3, 0)
     assert log.error_lines == []
     u01 = log.sections["U-01"]
     assert u01.command_output("permitrootlogin") == ["permitrootlogin no"]
@@ -62,6 +62,32 @@ def test_parser_survives_garbage(text: str) -> None:
 # --- 실제 Ubuntu 기본 설치 출력 ----------------------------------------------------------------
 
 UBUNTU_EXPECTED = {
+    "U-07": "vulnerable",  # 장기 미사용 계정
+    "U-08": "good",
+    "U-09": "good",
+    "U-10": "good",
+    "U-11": "good",
+    "U-12": "vulnerable",  # TMOUT 미설정
+    "U-13": "good",
+    "U-29": "good",
+    "U-30": "good",
+    "U-31": "good",
+    "U-32": "good",
+    "U-33": "vulnerable",  # /tmp 숨김 파일
+    "U-48": "na",
+    "U-51": "na",
+    "U-52": "good",
+    "U-53": "na",
+    "U-54": "good",
+    "U-55": "good",
+    "U-56": "na",
+    "U-57": "na",
+    "U-58": "good",
+    "U-60": "na",
+    "U-62": "vulnerable",  # 경고 문구 없음(OS 이름만)
+    "U-63": "good",
+    "U-65": "vulnerable",  # NTP 미동작
+    "U-67": "vulnerable",  # wtmp 등 664
     "U-01": "good",  # SSH·Telnet 미사용
     "U-02": "vulnerable",  # 비밀번호 관리정책 미설정
     "U-03": "vulnerable",  # 잠금 임계값 없음
@@ -117,9 +143,9 @@ def test_real_ubuntu_output_is_judged_item_by_item() -> None:
 
 def test_hardened_linux_is_all_good() -> None:
     result = statuses(read("linux_hardened.txt"))
-    assert len(result) == 41
+    assert len(result) == 67
     not_applicable = {code for code, status in result.items() if status == "na"}
-    assert not_applicable == {"U-20", "U-40"}  # inetd·NFS 미사용
+    assert not_applicable == {"U-20", "U-40", "U-53", "U-56", "U-57"}  # inetd·NFS·FTP 미사용
     assert {s for code, s in result.items() if code not in not_applicable} == {"good"}
 
 
@@ -128,6 +154,14 @@ def test_older_script_output_is_judged_without_errors() -> None:
     mapped = map_log(parse_log(read("linux_hardened_v1_1.txt")))
     assert mapped.errors == []
     assert len(mapped.results) == 13
+
+
+def test_v1_2_output_judges_only_its_41_items() -> None:
+    text = read("linux_hardened.txt").replace("VERSION=1.3.0", "VERSION=1.2.0", 1)
+    mapped = map_log(parse_log(text))
+    assert mapped.errors == []
+    assert len(mapped.results) == 41
+    assert "U-07" not in {r.item_code for r in mapped.results}
 
 
 def test_missing_section_in_current_script_is_an_error() -> None:
@@ -207,8 +241,17 @@ def test_services_detected_as_vulnerable() -> None:
 
 def test_windows_default_output() -> None:
     result = statuses(read("windows_default.txt"))
-    assert len(result) == 32
+    assert len(result) == 64
     assert {code for code, status in result.items() if status == "vulnerable"} == {
+        "W-08",  # 잠금 기간 미설정
+        "W-10",  # 마지막 사용자 이름 표시
+        "W-11",  # Backup Operators 로컬 로그온
+        "W-14",  # 원격 접속 전용 계정 없음
+        "W-36",  # RDP 유휴 시간 제한 없음
+        "W-37",  # Microsoft 외 예약 작업
+        "W-40",  # 감사 정책 미설정
+        "W-54",  # DoS 방어 레지스트리 없음
+        "W-57",  # 로그온 경고 메시지 없음
         "W-01",  # Administrator 이름 그대로
         "W-04",  # 잠금 임계값 없음
         "W-06",  # 관리자 2명
@@ -221,18 +264,18 @@ def test_windows_default_output() -> None:
         "W-47",  # 화면 보호기 암호 없음·15분
         "W-51",  # 공유 익명 열거 허용
     }
-    assert {code for code, status in result.items() if status == "na"} == {"W-22", "W-24"}
+    assert {code for code, status in result.items() if status == "na"} == {"W-22", "W-24", "W-63"}
 
 
 def test_hardened_windows_is_all_good() -> None:
     result = statuses(read("windows_hardened.txt"))
-    assert {code for code, status in result.items() if status != "good"} == {"W-22", "W-24"}
+    assert {code for code, status in result.items() if status != "good"} == {"W-22", "W-24", "W-63"}
 
 
 def test_older_windows_script_judges_only_collected_items() -> None:
     mapped = map_log(parse_log(read("windows_default_v1_0.txt")))
     assert mapped.errors == []
-    assert len(mapped.results) == 13
+    assert len(mapped.results) == 21
 
 
 @pytest.mark.parametrize(

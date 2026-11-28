@@ -1,4 +1,4 @@
-[START] OS=Linux HOSTNAME=ubuntu-01 DATE=2026-11-28T01:34:52+0000 SCRIPT=kisa_check_linux VERSION=1.2.0
+[START] OS=Linux HOSTNAME=ubuntu-01 DATE=2026-11-28T05:54:55+0000 SCRIPT=kisa_check_linux VERSION=1.3.0
 [INFO] DISTRO=Ubuntu 24.04.5 LTS
 [INFO] KERNEL=Linux 6.8.0-45-generic x86_64
 
@@ -54,6 +54,42 @@ $ awk -F: '$1 == "wheel" {print "WHEEL_MEMBERS=" ($4 == "" ? 0 : split($4, m, ",
 $ awk -F: '$3 >= 1000 && $3 < 65534 && $7 !~ /(nologin|false)$/ {n++} END {print "NORMAL_USERS=" n+0}' /etc/passwd
 NORMAL_USERS=1
 ==== U-06 END ====
+
+==== U-07 BEGIN ====
+$ login-shell accounts not logged in for 90 days (lastlog -b 90)
+ACCOUNT=root UID=0 STALE=yes
+ACCOUNT=ubuntu UID=1000 STALE=yes
+$ default unnecessary accounts (lp, uucp, nuucp)
+DEFAULT_ACCOUNT=lp SHELL=/usr/sbin/nologin
+DEFAULT_ACCOUNT=uucp SHELL=/usr/sbin/nologin
+==== U-07 END ====
+
+==== U-08 BEGIN ====
+$ members of root group (GID 0)
+==== U-08 END ====
+
+==== U-09 BEGIN ====
+$ groups (GID >= 1000) without any member
+==== U-09 END ====
+
+==== U-10 BEGIN ====
+$ duplicate UIDs in /etc/passwd
+==== U-10 END ====
+
+==== U-11 BEGIN ====
+$ system accounts with a login shell
+==== U-11 END ====
+
+==== U-12 BEGIN ====
+$ grep -Ehs '^[[:space:]]*(export[[:space:]]+|readonly[[:space:]]+|typeset[[:space:]]+-r[[:space:]]+)?TMOUT=' /etc/profile /etc/profile.d/*.sh /etc/bash.bashrc /etc/bashrc
+$ grep -Ehs '^[[:space:]]*set[[:space:]]+autologout' /etc/csh.cshrc /etc/csh.login
+==== U-12 END ====
+
+==== U-13 BEGIN ====
+$ grep -E '^ENCRYPT_METHOD' /etc/login.defs
+ENCRYPT_METHOD SHA512
+$ password hash algorithms in /etc/shadow (counts only, no hashes)
+==== U-13 END ====
 
 ==== U-14 BEGIN ====
 $ bash -lc 'echo PATH=$PATH'
@@ -163,6 +199,32 @@ IPTABLES_INPUT_POLICY=ACCEPT
 $ nft list ruleset (input hook rules)
 NFT_INPUT_RULES=0
 ==== U-28 END ====
+
+==== U-29 BEGIN ====
+$ stat /etc/hosts.lpd
+MISSING=/etc/hosts.lpd
+==== U-29 END ====
+
+==== U-30 BEGIN ====
+$ bash -lc umask
+0022
+$ grep -Ehis '^[[:space:]]*umask' /etc/profile /etc/bashrc /etc/bash.bashrc /etc/login.defs
+UMASK		022
+==== U-30 END ====
+
+==== U-31 BEGIN ====
+$ stat home directories (UID >= 1000)
+USER=ubuntu FILE=/home/ubuntu OWNER=ubuntu GROUP=ubuntu MODE=750
+==== U-31 END ====
+
+==== U-32 BEGIN ====
+$ accounts with a login shell whose home directory is missing
+==== U-32 END ====
+
+==== U-33 BEGIN ====
+$ find hidden files in /tmp /var/tmp /dev/shm /dev
+HIDDEN=/tmp/.x11-backup
+==== U-33 END ====
 
 ==== U-34 BEGIN ====
 $ systemctl list-unit-files 2>/dev/null | grep -Ei 'finger'
@@ -285,6 +347,18 @@ $ grep -Eh 'promiscuous_relay' /etc/mail/sendmail.mc /etc/mail/sendmail.cf 2>/de
 $ grep -Ehs 'relay_from_hosts' /etc/exim4/exim4.conf.template /etc/exim4/update-exim4.conf.conf /etc/exim/exim.conf 2>/dev/null
 ==== U-47 END ====
 
+==== U-48 BEGIN ====
+$ systemctl is-active/is-enabled sendmail postfix exim4 exim
+SERVICE=sendmail ACTIVE=unknown ENABLED=not-found
+SERVICE=postfix ACTIVE=unknown ENABLED=not-found
+SERVICE=exim4 ACTIVE=unknown ENABLED=not-found
+SERVICE=exim ACTIVE=unknown ENABLED=not-found
+$ pgrep -x sendmail master exim exim4
+$ grep -E '^O PrivacyOptions' /etc/mail/sendmail.cf 2>/dev/null
+$ postconf disable_vrfy_command 2>/dev/null
+$ grep -Ehs '^[[:space:]]*acl_smtp_(vrfy|expn)' /etc/exim4/exim4.conf.template /etc/exim/exim.conf 2>/dev/null
+==== U-48 END ====
+
 ==== U-49 BEGIN ====
 $ systemctl is-active/is-enabled named bind9
 SERVICE=named ACTIVE=unknown ENABLED=not-found
@@ -303,19 +377,112 @@ $ pgrep -x named
 $ grep -rEhs 'allow-transfer|xfrnets' /etc/named.conf /etc/named.rfc1912.zones /etc/bind/ 2>/dev/null
 ==== U-50 END ====
 
+==== U-51 BEGIN ====
+$ systemctl is-active/is-enabled named bind9
+SERVICE=named ACTIVE=unknown ENABLED=not-found
+SERVICE=bind9 ACTIVE=unknown ENABLED=not-found
+$ pgrep -x named
+$ grep -rEhs 'allow-update|update-policy' /etc/named.conf /etc/named.rfc1912.zones /etc/bind/ 2>/dev/null
+==== U-51 END ====
+
+==== U-52 BEGIN ====
+$ systemctl is-active/is-enabled telnet.socket telnetd
+SERVICE=telnet.socket ACTIVE=unknown ENABLED=not-found
+SERVICE=telnetd ACTIVE=unknown ENABLED=not-found
+$ inetd/xinetd telnet
+$ pgrep -x in.telnetd telnetd
+$ ss -ltnu
+==== U-52 END ====
+
+==== U-53 BEGIN ====
+$ systemctl is-active/is-enabled vsftpd proftpd pure-ftpd
+SERVICE=vsftpd ACTIVE=unknown ENABLED=not-found
+SERVICE=proftpd ACTIVE=unknown ENABLED=not-found
+SERVICE=pure-ftpd ACTIVE=unknown ENABLED=not-found
+$ grep -Ehs '^[[:space:]]*ftpd_banner' /etc/vsftpd.conf /etc/vsftpd/vsftpd.conf
+$ grep -Ehis '^[[:space:]]*(ServerIdent|DeferWelcome)' /etc/proftpd/proftpd.conf /etc/proftpd.conf
+==== U-53 END ====
+
+==== U-54 BEGIN ====
+$ systemctl is-active/is-enabled vsftpd proftpd pure-ftpd
+SERVICE=vsftpd ACTIVE=unknown ENABLED=not-found
+SERVICE=proftpd ACTIVE=unknown ENABLED=not-found
+SERVICE=pure-ftpd ACTIVE=unknown ENABLED=not-found
+$ inetd/xinetd ftp
+$ grep -Ehs '^[[:space:]]*(ssl_enable|force_local_logins_ssl|force_local_data_ssl)' /etc/vsftpd.conf /etc/vsftpd/vsftpd.conf
+$ grep -Ehis '^[[:space:]]*TLSRequired' /etc/proftpd/proftpd.conf /etc/proftpd/tls.conf /etc/proftpd.conf
+==== U-54 END ====
+
+==== U-55 BEGIN ====
+$ awk -F: '$1 == "ftp" {print "FTP_ACCOUNT_SHELL=" $7}' /etc/passwd
+==== U-55 END ====
+
+==== U-56 BEGIN ====
+$ systemctl is-active/is-enabled vsftpd proftpd pure-ftpd
+SERVICE=vsftpd ACTIVE=unknown ENABLED=not-found
+SERVICE=proftpd ACTIVE=unknown ENABLED=not-found
+SERVICE=pure-ftpd ACTIVE=unknown ENABLED=not-found
+$ grep -Ehs '^[[:space:]]*tcp_wrappers' /etc/vsftpd.conf /etc/vsftpd/vsftpd.conf
+$ grep -Ehis '^[[:space:]]*(vsftpd|proftpd|in.ftpd|ALL)[[:space:]]*:' /etc/hosts.allow /etc/hosts.deny
+$ grep -Ehis '^[[:space:]]*(Allow|Deny)[[:space:]]+from' /etc/proftpd/proftpd.conf /etc/proftpd.conf
+==== U-56 END ====
+
+==== U-57 BEGIN ====
+$ systemctl is-active/is-enabled vsftpd proftpd pure-ftpd
+SERVICE=vsftpd ACTIVE=unknown ENABLED=not-found
+SERVICE=proftpd ACTIVE=unknown ENABLED=not-found
+SERVICE=pure-ftpd ACTIVE=unknown ENABLED=not-found
+$ grep -Ehs '^[[:space:]]*root[[:space:]]*$' /etc/ftpusers /etc/vsftpd/ftpusers /etc/vsftpd.ftpusers /etc/vsftpd/user_list /etc/vsftpd.user_list
+$ grep -Ehs '^[[:space:]]*(userlist_enable|userlist_deny)' /etc/vsftpd.conf /etc/vsftpd/vsftpd.conf
+$ grep -Ehis '^[[:space:]]*RootLogin' /etc/proftpd/proftpd.conf /etc/proftpd.conf
+==== U-57 END ====
+
+==== U-58 BEGIN ====
+$ systemctl is-active/is-enabled snmpd
+SERVICE=snmpd ACTIVE=unknown ENABLED=not-found
+$ pgrep -x snmpd
+==== U-58 END ====
+
 ==== U-59 BEGIN ====
 $ systemctl is-active/is-enabled snmpd
 SERVICE=snmpd ACTIVE=unknown ENABLED=not-found
 $ pgrep -x snmpd
-$ grep -Ehs '^[[:space:]]*(rocommunity6?|rwcommunity6?|com2sec6?|createUser|rouser|rwuser)[[:space:]]' /etc/snmp/snmpd.conf /var/lib/net-snmp/snmpd.conf /var/lib/snmp/snmpd.conf 2>/dev/null | awk '{print $1, $2, $3, $4}'
+$ snmpd.conf (community/user lines, secrets masked)
 ==== U-59 END ====
+
+==== U-60 BEGIN ====
+$ systemctl is-active/is-enabled snmpd
+SERVICE=snmpd ACTIVE=unknown ENABLED=not-found
+$ pgrep -x snmpd
+$ snmpd.conf (community/user lines, secrets masked)
+==== U-60 END ====
 
 ==== U-61 BEGIN ====
 $ systemctl is-active/is-enabled snmpd
 SERVICE=snmpd ACTIVE=unknown ENABLED=not-found
 $ pgrep -x snmpd
-$ grep -Ehs '^[[:space:]]*(rocommunity6?|rwcommunity6?|com2sec6?|rouser|rwuser)[[:space:]]' /etc/snmp/snmpd.conf 2>/dev/null
+$ snmpd.conf (community/user lines, secrets masked)
 ==== U-61 END ====
+
+==== U-62 BEGIN ====
+$ login banner files (first 5 lines)
+BANNER_FILE=/etc/issue
+BANNER_TEXT: Ubuntu 24.04.5 LTS \n \l
+BANNER_FILE=/etc/issue.net
+BANNER_TEXT: Ubuntu 24.04.5 LTS
+$ sshd -T 2>/dev/null | grep -Ei '^banner'
+$ systemctl is-active/is-enabled vsftpd proftpd postfix sendmail named
+SERVICE=vsftpd ACTIVE=unknown ENABLED=not-found
+SERVICE=proftpd ACTIVE=unknown ENABLED=not-found
+SERVICE=postfix ACTIVE=unknown ENABLED=not-found
+SERVICE=sendmail ACTIVE=unknown ENABLED=not-found
+SERVICE=named ACTIVE=unknown ENABLED=not-found
+==== U-62 END ====
+
+==== U-63 BEGIN ====
+$ stat /etc/sudoers
+FILE=/etc/sudoers OWNER=root GROUP=root MODE=440
+==== U-63 END ====
 
 ==== U-64 BEGIN ====
 $ uname -r
@@ -328,10 +495,30 @@ $ apt list --upgradable 2>/dev/null | grep -ci security | sed 's/^/PENDING_SECUR
 PENDING_SECURITY_UPDATES=33
 ==== U-64 END ====
 
+==== U-65 BEGIN ====
+$ systemctl is-active/is-enabled chronyd chrony ntpd ntp systemd-timesyncd
+SERVICE=chronyd ACTIVE=unknown ENABLED=not-found
+SERVICE=chrony ACTIVE=unknown ENABLED=not-found
+SERVICE=ntpd ACTIVE=unknown ENABLED=not-found
+SERVICE=ntp ACTIVE=unknown ENABLED=not-found
+SERVICE=systemd-timesyncd ACTIVE=unknown ENABLED=not-found
+$ timedatectl show -p NTP -p NTPSynchronized 2>/dev/null
+$ grep -Ehs '^[[:space:]]*(server|pool)[[:space:]]' /etc/chrony.conf /etc/chrony/chrony.conf /etc/ntp.conf /etc/ntpsec/ntp.conf | awk '{print "TIME_SOURCE=" $1}'
+$ grep -Ehs '^[[:space:]]*(NTP|FallbackNTP)=' /etc/systemd/timesyncd.conf
+==== U-65 END ====
+
 ==== U-66 BEGIN ====
 $ systemctl is-active rsyslog syslog-ng 2>/dev/null
 NOT_FOUND=/etc/rsyslog.conf
 $ grep -Ehv '^[[:space:]]*(#|$)' /etc/rsyslog.d/*.conf 2>/dev/null
 ==== U-66 END ====
+
+==== U-67 BEGIN ====
+$ find /var/log -maxdepth 1 -type f (owner not root or mode > 644)
+LOG_FILES=7
+BAD FILE=/var/log/lastlog OWNER=root GROUP=utmp MODE=664
+BAD FILE=/var/log/btmp OWNER=root GROUP=utmp MODE=660
+BAD FILE=/var/log/wtmp OWNER=root GROUP=utmp MODE=664
+==== U-67 END ====
 
 [END]

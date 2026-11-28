@@ -1,4 +1,4 @@
-[START] OS=Windows HOSTNAME=WIN-SRV-02 DATE=2026-11-28T09:00:00+09:00 SCRIPT=kisa_check_windows VERSION=1.1.0
+[START] OS=Windows HOSTNAME=WIN-SRV-02 DATE=2026-11-28T09:00:00+09:00 SCRIPT=kisa_check_windows VERSION=1.2.0
 [INFO] DISTRO=Microsoft Windows Server 2022 Standard 10.0.20348
 [INFO] IP=MASKED_IP_001/24
 
@@ -31,6 +31,31 @@ MACHINE\System\CurrentControlSet\Control\Lsa\CrashOnAuditFail=4,0
 MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\ShutdownWithoutLogon=4,0
 MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\InactivityTimeoutSecs=4,600
 MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\AllocateDASD=1,"0"
+MACHINE\System\CurrentControlSet\Control\Lsa\EveryoneIncludesAnonymous=4,0
+MACHINE\System\CurrentControlSet\Control\Lsa\LimitBlankPasswordUse=4,1
+LSAAnonymousNameLookup = 0
+LockoutDuration = 60
+ResetLockoutCount = 60
+MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\DontDisplayLastUserName=4,1
+MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\LegalNoticeCaption=1,"경고"
+MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\LegalNoticeText=7,인가된 사용자만 사용할 수 있습니다. 무단 사용 시 처벌받을 수 있습니다.
+SeInteractiveLogonRight = *S-1-5-32-544
+AuditSystemEvents = 3
+AuditLogonEvents = 3
+AuditObjectAccess = 2
+AuditPrivilegeUse = 3
+AuditPolicyChange = 3
+AuditAccountManage = 3
+AuditProcessTracking = 0
+AuditDSAccess = 2
+AuditAccountLogon = 3
+MACHINE\System\CurrentControlSet\Control\Lsa\LmCompatibilityLevel=4,5
+MACHINE\System\CurrentControlSet\Control\Print\Providers\LanMan Print Services\Servers\AddPrinterDrivers=4,1
+MACHINE\System\CurrentControlSet\Services\LanManServer\Parameters\AutoDisconnect=4,15
+MACHINE\System\CurrentControlSet\Services\LanManServer\Parameters\EnableForcedLogOff=4,1
+MACHINE\System\CurrentControlSet\Services\Netlogon\Parameters\RequireSignOrSeal=4,1
+MACHINE\System\CurrentControlSet\Services\Netlogon\Parameters\SealSecureChannel=4,1
+MACHINE\System\CurrentControlSet\Services\Netlogon\Parameters\SignSecureChannel=4,1
 ==== WIN-SECURITY_POLICY END ====
 
 ==== WIN-SERVICES BEGIN ====
@@ -39,6 +64,7 @@ SERVICE=RemoteRegistry STATUS=Stopped START=Disabled
 SERVICE=SharedAccess STATUS=Stopped START=Manual
 SERVICE=Browser STATUS=Stopped START=Disabled
 SERVICE=WerSvc STATUS=Stopped START=Manual
+SERVICE=W32Time STATUS=Running START=Automatic
 ==== WIN-SERVICES END ====
 
 ==== WIN-SHARES BEGIN ====
@@ -57,6 +83,32 @@ AutoShareWks=0
 ==== WIN-HOTFIX BEGIN ====
 HOTFIX=KB5044281 INSTALLED=10/14/2026 00:00:00 DESC=Security Update
 ==== WIN-HOTFIX END ====
+
+==== WIN-AUDIT_POLICY BEGIN ====
+$ auditpol /get /category:*
+System audit policy
+Category/Subcategory                      Setting
+Logon/Logoff
+  Logon                                   Success and Failure
+==== WIN-AUDIT_POLICY END ====
+
+==== WIN-EVENTLOG BEGIN ====
+$ wevtutil gl Security
+name: Security
+  retention: false
+  autoBackup: false
+  maxSize: 20971520
+$ wevtutil gl System
+name: System
+  retention: false
+  autoBackup: false
+  maxSize: 20971520
+$ wevtutil gl Application
+name: Application
+  retention: false
+  autoBackup: false
+  maxSize: 20971520
+==== WIN-EVENTLOG END ====
 
 ==== WIN-REMOTE_ACCESS BEGIN ====
 fDenyTSConnections=0
@@ -106,6 +158,8 @@ SAM_ACE=NT_AUTHORITY\SYSTEM RIGHTS=FullControl TYPE=Allow
 ==== WIN-IIS_FTP BEGIN ====
 $ IIS FTP sites
 IIS_MODULE=unavailable
+$ IIS server header
+IIS_REMOVE_SERVER_HEADER=unknown
 $ MSADC virtual directory
 MSADC_VDIR=unknown
 ==== WIN-IIS_FTP END ====
@@ -121,5 +175,34 @@ DefenderAntivirusEnabled=True
 DefenderSignatureAge=0
 $ antivirus services
 ==== WIN-PATCH_AV END ====
+
+==== WIN-HARDENING BEGIN ====
+$ Get-LocalGroupMember -SID S-1-5-32-555
+RDP_MEMBER=WIN-SRV-02\rdpops CLASS=User
+PolicyMaxIdleTime=900000
+RdpMaxIdleTime=0
+TelnetSecurityMechanism=NOT_SET
+W32TimeType=NTP
+SynAttackProtect=1
+EnableDeadGWDetect=0
+KeepAliveTime=300000
+NoNameReleaseOnDemand=1
+NTP_SERVER_SET=True
+$ SNMP communities (names masked) and permitted managers
+SNMP_PERMITTED_MANAGERS=0
+$ ODBC system DSN
+$ Get-ScheduledTask (non-Microsoft)
+$ Get-Acl event log folder
+LOGDIR_EVERYONE=False
+$ user home folders with Everyone
+HOME_DIR=C:\Users\SrvOps01 EVERYONE=False
+$ fixed volumes
+VOLUME=C FS=NTFS
+$ startup programs
+PART_OF_DOMAIN=False
+FIREWALL=Domain ENABLED=True
+FIREWALL=Private ENABLED=True
+FIREWALL=Public ENABLED=True
+==== WIN-HARDENING END ====
 
 [END]

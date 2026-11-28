@@ -71,6 +71,24 @@ describe("MaskingSession", () => {
     expect(processedText).toContain("ADMIN_MEMBER=WIN-SRV-01\\Administrator");
   });
 
+  it("masks Remote Desktop members and Windows profile folders consistently", () => {
+    const { processedText } = new MaskingSession(both).mask(
+      [
+        "RDP_MEMBER=WIN-SRV-01\\park.ops CLASS=User",
+        "HOME_DIR=C:\\Users\\park.ops EVERYONE=False",
+        "HOME_DIR=C:\\Users\\Administrator EVERYONE=False",
+        "HOME_DIR=C:\\Users\\Public EVERYONE=True",
+      ].join("\n"),
+    );
+    expect(processedText).not.toContain("park.ops");
+    expect(processedText).toContain("RDP_MEMBER=WIN-SRV-01\\MASKED_USER_001");
+    expect(processedText).toContain(
+      "HOME_DIR=C:\\Users\\MASKED_USER_001 EVERYONE=False",
+    );
+    expect(processedText).toContain("C:\\Users\\Administrator");
+    expect(processedText).toContain("C:\\Users\\Public");
+  });
+
   it("uses the same alias for the same value across files in one upload", () => {
     const session = new MaskingSession(both);
     const a = session.mask("[INFO] IP=192.168.1.50/24").processedText;

@@ -7,6 +7,7 @@ import re
 
 from modules.compliance.judgement import Judgement, Rule, good, int_or_none, vulnerable
 from modules.compliance.kisa_windows_high import HIGH_RULES
+from modules.compliance.kisa_windows_medium import MEDIUM_LOW_RULES
 from modules.parser.log_parser import ParsedLog, Section
 
 _ACCOUNT = re.compile(r"ACCOUNT=(\S+) ENABLED=(True|False) RID=(\d+)")
@@ -94,5 +95,5 @@ _BASE_RULES: list[Rule] = [
 
 
 WINDOWS_RULES: list[Rule] = sorted(
-    _BASE_RULES + HIGH_RULES, key=lambda rule: int(rule.item_code.split("-")[1])
+    _BASE_RULES + HIGH_RULES + MEDIUM_LOW_RULES, key=lambda rule: int(rule.item_code.split("-")[1])
 )

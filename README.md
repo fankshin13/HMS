@@ -60,9 +60,9 @@ Supabase 프로젝트 설정: Authentication → URL Configuration 의 Redirect 
 ## 자동 판정 엔진 (backend/modules)
 - `modules/parser/log_parser.py`: 표준 스크립트 결과를 구간 단위로 나누는 순수 파서. 어떤 입력에도 예외를 던지지 않고, 해석할 수 없는 줄은 줄 번호와 함께 오류 목록에 담습니다.
 - 기준: KISA 「2026 주요정보통신기반시설 기술적 취약점 분석·평가 방법 상세가이드」. Unix 67개·Windows 64개 항목의 기준표(이름·중요도·판단 기준·조치 방법)는 원문에서 추출해 `compliance_guidelines` 에 적재했습니다.
-- `modules/compliance/`: 자동 판정 규칙. Unix 41개(중요도 '상' 40개 전부 + U-66), Windows 32개(중요도 '상' 31개 전부 + W-05)를 판정합니다. Unix: `kisa_linux.py`(v1.1 항목), `kisa_linux_files.py`·`kisa_linux_services.py`(v1.2 추가), Windows: `kisa_windows.py`, `kisa_windows_high.py`. 구간 안에 `RESULT=OK|VULNERABLE|N/A` 가 있으면 우선합니다. 근거가 부족하면 보수적으로 '취약'으로 판정하고 사유를 남깁니다. 업무상 필요 여부처럼 자동으로 알 수 없는 부분은 객관적 기준(90일 미접속, 패치 60일, 백신 서명 7일 등)으로 판정하며, 예외는 사유와 함께 판정을 변경합니다.
-- 규칙마다 근거를 수집하기 시작한 스크립트 버전(`since`)이 있어, 예전 버전 스크립트 결과는 수집된 항목만 판정하고 오류로 격리하지 않습니다. 스크립트 버전: Linux 1.2.0, Windows 1.1.0.
-- 비밀 값은 수집하지 않습니다(SNMP 커뮤니티 문자열·v3 비밀번호는 스크립트에서 가림). 업로더는 사설 IP와 계정명(`USER=`·`OWNER=`·`GROUP=`·`/home/<이름>`·`ADMIN_MEMBER=`)을 같은 가명으로 일관되게 치환해 소유자 비교 판정이 유지됩니다.
+- `modules/compliance/`: 자동 판정 규칙. KISA 2026 기준 Unix 67개·Windows 64개 **전 항목(131개)** 을 판정합니다. Unix: `kisa_linux.py`(v1.1 항목), `kisa_linux_files.py`·`kisa_linux_services.py`(v1.2, 중요도 '상'), `kisa_linux_medium.py`(v1.3, '중'·'하'), Windows: `kisa_windows.py`, `kisa_windows_high.py`('상'), `kisa_windows_medium.py`('중'·'하'). 구간 안에 `RESULT=OK|VULNERABLE|N/A` 가 있으면 우선합니다. 근거가 부족하면 보수적으로 '취약'으로 판정하고 사유를 남깁니다. 업무상 필요 여부처럼 자동으로 알 수 없는 부분은 객관적 기준(90일 미접속, 패치 60일, 백신 서명 7일 등)으로 판정하고, 정기 검토가 기준인 항목(숨김 파일·예약 작업·시작 프로그램·ODBC 등)은 목록을 보여 주며 '취약(검토 필요)'으로 판정합니다. 예외는 판정 변경(사유 기록)으로 처리합니다.
+- 규칙마다 근거를 수집하기 시작한 스크립트 버전(`since`)이 있어, 예전 버전 스크립트 결과는 수집된 항목만 판정하고 오류로 격리하지 않습니다. 스크립트 버전: Linux 1.3.0, Windows 1.2.0.
+- 비밀 값은 수집하지 않습니다(SNMP 커뮤니티 문자열·v3 비밀번호는 스크립트에서 가리고 기본값 여부·복잡도만 남김, 비밀번호 해시는 알고리즘별 개수만 수집). 업로더는 사설 IP와 계정명(`USER=`·`ACCOUNT=`·`OWNER=`·`GROUP=`·`/home/<이름>`·`ADMIN_MEMBER=`·`RDP_MEMBER=`·`C:\Users\<이름>`)을 같은 가명으로 일관되게 치환해 소유자 비교 판정이 유지됩니다.
 - `modules/worker/`: `queued` 진단 차수를 선점해 `parsing → scoring → completed` 로 처리합니다(멱등, 로그 단위 커밋, 저장소 장애 시 `failed`). 형식이 깨진 로그는 `partial_error` 로 격리하고, 판정 가능한 항목은 저장합니다.
 - 실행: `cd backend && uv run python -m modules.worker` (대기열이 빌 때까지만 처리하려면 `--once`). 필요한 환경 변수는 `backend/.env.example` 참고.
 
@@ -83,6 +83,10 @@ Supabase 프로젝트 설정: Authentication → URL Configuration 의 Redirect 
 - 제로 리텐션: 테넌트 설정이 켜져 있으면 owner·operator 가 ZIP 일괄 다운로드를 마친 뒤 확인을 거쳐 원본 로그를 영구 삭제합니다(`purge_raw_diagnostic_data`, 감사 기록 `purge_audit_logs`). 내려받지 않아도 보고서 생성 24시간 뒤 워커가 자동 파기합니다. 판정 결과와 보고서는 남습니다.
 - API: `POST /api/assessments/<id>/reports/generate[?force=true]`, `GET /api/assessments/<id>/reports`, `GET .../reports/<detailed|summary|risk_plan>/download?format=docx|pdf`, `GET .../reports/bundle/download`, `POST .../reports/purge-raw`.
 - 워커 실행 환경: pango·cairo·harfbuzz(가능하면 libharfbuzz-subset) 시스템 라이브러리, 한글 글꼴. `REPORT_FONT_DIR` 에 Pretendard-Regular.otf·Pretendard-Bold.otf 를 두면 PDF·차트에 사용하고, 없으면 시스템 한글 글꼴(Noto Sans CJK KR 등)을 씁니다. DOCX 는 '맑은 고딕'으로 표시됩니다.
+
+## Supabase 프로젝트
+- 원격 프로젝트 「시스템 취약점 진단 Project」(ref `ghcpajruzahivwewpktx`, ap-northeast-1)에 `supabase/migrations` 전체를 적용했습니다. 보안 점검(advisor)은 ERROR 없음(경고는 내부에서 로그인·역할을 확인하는 의도된 SECURITY DEFINER 함수), 성능 점검의 외래키 인덱스 안내는 `20261128060000_foreign_key_indexes.sql` 로 해소했습니다.
+- 배포 전 대시보드에서 할 일: Auth 사이트 URL·리디렉션 URL(`<APP_URL>/auth/callback`) 등록, 이메일(매직 링크) 발신 설정, 앱 환경 변수(`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`)와 워커 시크릿(`SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`) 주입.
 
 ## 환경 변수
 `.env.example`에 이름만 정리돼 있습니다. 값은 `.env`(커밋 금지) 또는 서버 측 시크릿 저장소에 둡니다.

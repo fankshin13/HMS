@@ -13,7 +13,7 @@
 set -u
 export LC_ALL=C
 
-SCRIPT_VERSION="1.2.0"
+SCRIPT_VERSION="1.3.0"
 HOST="$(hostname 2>/dev/null || uname -n)"
 STAMP="$(date +%Y%m%d%H%M%S)"
 OUT="${HOST}_linux_${STAMP}.txt"
@@ -104,14 +104,18 @@ listen() {
   ss -ltnu 2>/dev/null | awk 'NR > 1 {print "LISTEN=" $1 "/" $5}'
 }
 
-# SNMP 설정 요약. 커뮤니티 문자열·v3 비밀번호는 남기지 않는다(public/private 기본값 여부만 표시).
+# SNMP 설정 요약. 커뮤니티 문자열·v3 비밀번호는 남기지 않는다(public/private 기본값 여부와 복잡도 판정만 표시).
 snmp_conf() {
   hdr "snmpd.conf (community/user lines, secrets masked)"
   grep -Ehs '^[[:space:]]*(rocommunity6?|rwcommunity6?|com2sec6?|createUser|rouser|rwuser)[[:space:]]' \
     /etc/snmp/snmpd.conf /var/lib/net-snmp/snmpd.conf /var/lib/snmp/snmpd.conf 2>/dev/null |
     awk 'function c(v) { return (v == "public" || v == "private") ? v : "MASKED" }
-      $1 ~ /^r[ow]community6?$/ { print "SNMP=" $1, "COMMUNITY=" c($2), "SOURCE=" ($3 == "" ? "none" : $3); next }
-      $1 ~ /^com2sec6?$/ { print "SNMP=" $1, "SECNAME=" $2, "SOURCE=" $3, "COMMUNITY=" c($4); next }
+      function s(v,  a, d, x) {
+        a = v ~ /[A-Za-z]/; d = v ~ /[0-9]/; x = v ~ /[^A-Za-z0-9]/
+        return (c(v) == "MASKED" && ((length(v) >= 10 && a && d) || (length(v) >= 8 && a && d && x))) ? "ok" : "weak"
+      }
+      $1 ~ /^r[ow]community6?$/ { print "SNMP=" $1, "COMMUNITY=" c($2), "STRENGTH=" s($2), "SOURCE=" ($3 == "" ? "none" : $3); next }
+      $1 ~ /^com2sec6?$/ { print "SNMP=" $1, "SECNAME=" $2, "SOURCE=" $3, "COMMUNITY=" c($4), "STRENGTH=" s($4); next }
       { print "SNMP=" $1, "USER=" $2 }'
 }
 
@@ -187,6 +191,53 @@ collect() {
   run "awk -F: '\$1 == \"wheel\" {print \"WHEEL_MEMBERS=\" (\$4 == \"\" ? 0 : split(\$4, m, \",\"))}' /etc/group"
   run "awk -F: '\$3 >= 1000 && \$3 < 65534 && \$7 !~ /(nologin|false)\$/ {n++} END {print \"NORMAL_USERS=\" n+0}' /etc/passwd"
   end "U-06"
+
+  begin "U-07" # 불필요한 계정 제거
+  hdr "login-shell accounts not logged in for 90 days (lastlog -b 90)"
+  if command -v lastlog >/dev/null 2>&1; then
+    stale="$(lastlog -b 90 2>/dev/null | awk 'NR > 1 {print $1}')"
+    awk -F: '$7 !~ /(nologin|false|sync|shutdown|halt)$/ {print $1, $3}' /etc/passwd | while read -r account uid; do
+      if printf '%s\n' "$stale" | grep -qx "$account"; then flag=yes; else flag=no; fi
+      printf 'ACCOUNT=%s UID=%s STALE=%s\n' "$account" "$uid" "$flag"
+    done
+  else
+    echo "LASTLOG=unavailable"
+  fi
+  hdr "default unnecessary accounts (lp, uucp, nuucp)"
+  awk -F: '$1 ~ /^(lp|uucp|nuucp)$/ {print "DEFAULT_ACCOUNT=" $1, "SHELL=" $7}' /etc/passwd
+  end "U-07"
+
+  begin "U-08" # 관리자 그룹에 최소한의 계정 포함
+  hdr "members of root group (GID 0)"
+  awk -F: '$3 == 0 {n = split($4, m, ","); for (i = 1; i <= n; i++) if (m[i] != "") print "USER=" m[i]}' /etc/group
+  awk -F: '$4 == 0 && $1 != "root" {print "USER=" $1, "PRIMARY_GID=0"}' /etc/passwd
+  end "U-08"
+
+  begin "U-09" # 계정이 존재하지 않는 GID 금지
+  hdr "groups (GID >= 1000) without any member"
+  awk -F: 'NR == FNR {primary[$4] = 1; next} $3 >= 1000 && $3 < 65534 && $4 == "" && !($3 in primary) {print "GROUP=" $1, "EMPTY=yes"}' /etc/passwd /etc/group
+  end "U-09"
+
+  begin "U-10" # 동일한 UID 금지
+  hdr "duplicate UIDs in /etc/passwd"
+  awk -F: '{count[$3]++} END {for (u in count) if (count[u] > 1) print "DUP_UID=" u, "COUNT=" count[u]}' /etc/passwd
+  end "U-10"
+
+  begin "U-11" # 사용자 shell 점검
+  hdr "system accounts with a login shell"
+  awk -F: '$1 ~ /^(daemon|bin|sys|adm|listen|nobody|nobody4|noaccess|diag|operator|games|gopher|lp|uucp|nuucp|news|mail|www-data|backup|list|irc|gnats|proxy)$/ && $7 !~ /(nologin|false)$/ {print "SYSTEM_SHELL=" $1 ":" $7}' /etc/passwd
+  end "U-11"
+
+  begin "U-12" # 세션 종료 시간 설정
+  run "grep -Ehs '^[[:space:]]*(export[[:space:]]+|readonly[[:space:]]+|typeset[[:space:]]+-r[[:space:]]+)?TMOUT=' /etc/profile /etc/profile.d/*.sh /etc/bash.bashrc /etc/bashrc"
+  run "grep -Ehs '^[[:space:]]*set[[:space:]]+autologout' /etc/csh.cshrc /etc/csh.login"
+  end "U-12"
+
+  begin "U-13" # 안전한 비밀번호 암호화 알고리즘 사용
+  run "grep -E '^ENCRYPT_METHOD' /etc/login.defs"
+  hdr "password hash algorithms in /etc/shadow (counts only, no hashes)"
+  awk -F: '$2 ~ /^\$/ {split($2, p, "$"); a[p[2]]++; next} length($2) == 13 {a["des"]++} END {for (k in a) print "HASH_ALGO=" k, "COUNT=" a[k]}' /etc/shadow
+  end "U-13"
 
   begin "U-14" # root 홈, 패스 디렉터리 권한 및 패스 설정
   # sudo 의 secure_path 가 아니라 root 로그인 셸의 PATH 를 확인한다
@@ -279,6 +330,36 @@ collect() {
   printf 'NFT_INPUT_RULES=%s\n' "$(nft list ruleset 2>/dev/null |
     awk '/hook input/ {f = 1} f && /(accept|drop|reject)/ {n++} /^[[:space:]]*}/ {f = 0} END {print n + 0}')"
   end "U-28"
+
+  begin "U-29" # hosts.lpd 파일 소유자 및 권한 설정
+  stat_line /etc/hosts.lpd
+  end "U-29"
+
+  begin "U-30" # UMASK 설정 관리
+  run "bash -lc umask"
+  run "grep -Ehis '^[[:space:]]*umask' /etc/profile /etc/bashrc /etc/bash.bashrc /etc/login.defs"
+  end "U-30"
+
+  begin "U-31" # 홈디렉토리 소유자 및 권한 설정
+  hdr "stat home directories (UID >= 1000)"
+  awk -F: '$3 >= 1000 && $3 < 65534 {print $1, $6}' /etc/passwd | while read -r account home; do
+    [ -d "$home" ] && stat -c "USER=$account FILE=%n OWNER=%U GROUP=%G MODE=%a" "$home"
+  done
+  end "U-31"
+
+  begin "U-32" # 홈 디렉토리로 지정한 디렉토리의 존재 관리
+  hdr "accounts with a login shell whose home directory is missing"
+  awk -F: '$3 >= 1000 && $3 < 65534 && $7 !~ /(nologin|false)$/ {print $1, $6}' /etc/passwd | while read -r account home; do
+    [ -d "$home" ] || printf 'USER=%s HOME_EXISTS=no\n' "$account"
+  done
+  end "U-32"
+
+  begin "U-33" # 숨겨진 파일 및 디렉토리 검색 및 제거
+  hdr "find hidden files in /tmp /var/tmp /dev/shm /dev"
+  find /tmp /var/tmp /dev/shm /dev -xdev -maxdepth 3 -name '.*' \
+    ! -name '.X11-unix' ! -name '.ICE-unix' ! -name '.font-unix' ! -name '.XIM-unix' ! -name '.Test-unix' \
+    ! -name '.lock' ! -name '.udev' ! -path '/dev/.mdadm*' 2>/dev/null | head -n 50 | sed 's/^/HIDDEN=/'
+  end "U-33"
 
   begin "U-34" # Finger 서비스 비활성화
   run "systemctl list-unit-files 2>/dev/null | grep -Ei 'finger'"
@@ -379,6 +460,14 @@ collect() {
   run "grep -Ehs 'relay_from_hosts' /etc/exim4/exim4.conf.template /etc/exim4/update-exim4.conf.conf /etc/exim/exim.conf 2>/dev/null"
   end "U-47"
 
+  begin "U-48" # expn, vrfy 명령어 제한
+  svc sendmail postfix exim4 exim
+  procs sendmail master exim exim4
+  run "grep -E '^O PrivacyOptions' /etc/mail/sendmail.cf 2>/dev/null"
+  run "postconf disable_vrfy_command 2>/dev/null"
+  run "grep -Ehs '^[[:space:]]*acl_smtp_(vrfy|expn)' /etc/exim4/exim4.conf.template /etc/exim/exim.conf 2>/dev/null"
+  end "U-48"
+
   begin "U-49" # DNS 보안 버전 패치
   svc named bind9
   procs named
@@ -392,17 +481,88 @@ collect() {
   run "grep -rEhs 'allow-transfer|xfrnets' /etc/named.conf /etc/named.rfc1912.zones /etc/bind/ 2>/dev/null"
   end "U-50"
 
+  begin "U-51" # DNS 서비스의 취약한 동적 업데이트 설정 금지
+  svc named bind9
+  procs named
+  run "grep -rEhs 'allow-update|update-policy' /etc/named.conf /etc/named.rfc1912.zones /etc/bind/ 2>/dev/null"
+  end "U-51"
+
+  begin "U-52" # Telnet 서비스 비활성화
+  svc telnet.socket telnetd
+  inet_check telnet
+  procs in.telnetd telnetd
+  listen
+  end "U-52"
+
+  begin "U-53" # FTP 서비스 정보 노출 제한
+  svc vsftpd proftpd pure-ftpd
+  run "grep -Ehs '^[[:space:]]*ftpd_banner' /etc/vsftpd.conf /etc/vsftpd/vsftpd.conf"
+  run "grep -Ehis '^[[:space:]]*(ServerIdent|DeferWelcome)' /etc/proftpd/proftpd.conf /etc/proftpd.conf"
+  end "U-53"
+
+  begin "U-54" # 암호화되지 않는 FTP 서비스 비활성화
+  svc vsftpd proftpd pure-ftpd
+  inet_check ftp
+  run "grep -Ehs '^[[:space:]]*(ssl_enable|force_local_logins_ssl|force_local_data_ssl)' /etc/vsftpd.conf /etc/vsftpd/vsftpd.conf"
+  run "grep -Ehis '^[[:space:]]*TLSRequired' /etc/proftpd/proftpd.conf /etc/proftpd/tls.conf /etc/proftpd.conf"
+  end "U-54"
+
+  begin "U-55" # FTP 계정 shell 제한
+  run "awk -F: '\$1 == \"ftp\" {print \"FTP_ACCOUNT_SHELL=\" \$7}' /etc/passwd"
+  end "U-55"
+
+  begin "U-56" # FTP 서비스 접근 제어 설정
+  svc vsftpd proftpd pure-ftpd
+  run "grep -Ehs '^[[:space:]]*tcp_wrappers' /etc/vsftpd.conf /etc/vsftpd/vsftpd.conf"
+  run "grep -Ehis '^[[:space:]]*(vsftpd|proftpd|in.ftpd|ALL)[[:space:]]*:' /etc/hosts.allow /etc/hosts.deny"
+  run "grep -Ehis '^[[:space:]]*(Allow|Deny)[[:space:]]+from' /etc/proftpd/proftpd.conf /etc/proftpd.conf"
+  end "U-56"
+
+  begin "U-57" # Ftpusers 파일 설정
+  svc vsftpd proftpd pure-ftpd
+  run "grep -Ehs '^[[:space:]]*root[[:space:]]*$' /etc/ftpusers /etc/vsftpd/ftpusers /etc/vsftpd.ftpusers /etc/vsftpd/user_list /etc/vsftpd.user_list"
+  run "grep -Ehs '^[[:space:]]*(userlist_enable|userlist_deny)' /etc/vsftpd.conf /etc/vsftpd/vsftpd.conf"
+  run "grep -Ehis '^[[:space:]]*RootLogin' /etc/proftpd/proftpd.conf /etc/proftpd.conf"
+  end "U-57"
+
+  begin "U-58" # 불필요한 SNMP 서비스 구동 점검
+  svc snmpd
+  procs snmpd
+  end "U-58"
+
   begin "U-59" # 안전한 SNMP 버전 사용
   svc snmpd
   procs snmpd
   snmp_conf
   end "U-59"
 
+  begin "U-60" # SNMP Community String 복잡성 설정
+  svc snmpd
+  procs snmpd
+  snmp_conf
+  end "U-60"
+
   begin "U-61" # SNMP Access Control 설정
   svc snmpd
   procs snmpd
   snmp_conf
   end "U-61"
+
+  begin "U-62" # 로그인 시 경고 메시지 설정
+  hdr "login banner files (first 5 lines)"
+  for file in /etc/motd /etc/issue /etc/issue.net; do
+    if [ -s "$file" ]; then
+      printf 'BANNER_FILE=%s\n' "$file"
+      grep -v '^[[:space:]]*$' "$file" | head -n 5 | sed 's/^/BANNER_TEXT: /'
+    fi
+  done
+  run "sshd -T 2>/dev/null | grep -Ei '^banner'"
+  svc vsftpd proftpd postfix sendmail named
+  end "U-62"
+
+  begin "U-63" # sudo 명령어 접근 관리
+  stat_line /etc/sudoers
+  end "U-63"
 
   begin "U-64" # 주기적 보안 패치 및 벤더 권고사항 적용
   run "uname -r"
@@ -415,11 +575,25 @@ collect() {
   fi
   end "U-64"
 
+  begin "U-65" # NTP 및 시각 동기화 설정
+  svc chronyd chrony ntpd ntp systemd-timesyncd
+  run "timedatectl show -p NTP -p NTPSynchronized 2>/dev/null"
+  run "grep -Ehs '^[[:space:]]*(server|pool)[[:space:]]' /etc/chrony.conf /etc/chrony/chrony.conf /etc/ntp.conf /etc/ntpsec/ntp.conf | awk '{print \"TIME_SOURCE=\" \$1}'"
+  run "grep -Ehs '^[[:space:]]*(NTP|FallbackNTP)=' /etc/systemd/timesyncd.conf"
+  end "U-65"
+
   begin "U-66" # 정책에 따른 시스템 로깅 설정
   run "systemctl is-active rsyslog syslog-ng 2>/dev/null"
   show_conf /etc/rsyslog.conf
   run "grep -Ehv '^[[:space:]]*(#|$)' /etc/rsyslog.d/*.conf 2>/dev/null"
   end "U-66"
+
+  begin "U-67" # 로그 디렉터리 소유자 및 권한 설정
+  hdr "find /var/log -maxdepth 1 -type f (owner not root or mode > 644)"
+  find /var/log -maxdepth 1 -type f 2>/dev/null | wc -l | sed 's/^/LOG_FILES=/'
+  find /var/log -maxdepth 1 -type f \( ! -user root -o -perm /0133 \) \
+    -exec stat -c 'BAD FILE=%n OWNER=%U GROUP=%G MODE=%a' {} + 2>/dev/null | head -n 50
+  end "U-67"
 
   echo "[END]"
 }

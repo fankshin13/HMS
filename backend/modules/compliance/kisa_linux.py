@@ -10,6 +10,7 @@ import re
 
 from modules.compliance.judgement import Judgement, Rule, good, int_or_none, na, vulnerable
 from modules.compliance.kisa_linux_files import FILE_RULES
+from modules.compliance.kisa_linux_medium import MEDIUM_LOW_RULES
 from modules.compliance.kisa_linux_services import SERVICE_RULES
 from modules.parser.log_parser import ParsedLog, Section
 
@@ -242,4 +243,6 @@ def _code(rule: Rule) -> int:
     return int(rule.item_code.split("-")[1])
 
 
-LINUX_RULES: list[Rule] = sorted(_BASE_RULES + FILE_RULES + SERVICE_RULES, key=_code)
+LINUX_RULES: list[Rule] = sorted(
+    _BASE_RULES + FILE_RULES + SERVICE_RULES + MEDIUM_LOW_RULES, key=_code
+)

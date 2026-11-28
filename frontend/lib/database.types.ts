@@ -15,6 +15,7 @@ export type Database = {
           created_at: string;
           id: string;
           raw_archive_sha256: string | null;
+          raw_logs_purged_at: string | null;
           started_at: string | null;
           status: Database["public"]["Enums"]["assessment_status"];
           tenant_id: string;
@@ -29,6 +30,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           raw_archive_sha256?: string | null;
+          raw_logs_purged_at?: string | null;
           started_at?: string | null;
           status?: Database["public"]["Enums"]["assessment_status"];
           tenant_id: string;
@@ -42,6 +44,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           raw_archive_sha256?: string | null;
+          raw_logs_purged_at?: string | null;
           started_at?: string | null;
           status?: Database["public"]["Enums"]["assessment_status"];
           tenant_id?: string;
@@ -451,6 +454,121 @@ export type Database = {
           },
         ];
       };
+      purge_audit_logs: {
+        Row: {
+          actor_user_id: string;
+          assessment_run_id: string;
+          created_at: string;
+          id: string;
+          purged_log_count: number;
+          purged_reports: boolean;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          actor_user_id: string;
+          assessment_run_id: string;
+          created_at?: string;
+          id?: string;
+          purged_log_count: number;
+          purged_reports?: boolean;
+          tenant_id: string;
+        };
+        Update: {
+          actor_user_id?: string;
+          assessment_run_id?: string;
+          created_at?: string;
+          id?: string;
+          purged_log_count?: number;
+          purged_reports?: boolean;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "purge_audit_actor_fk";
+            columns: ["actor_user_id", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id", "tenant_id"];
+          },
+          {
+            foreignKeyName: "purge_audit_logs_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "purge_audit_run_fk";
+            columns: ["assessment_run_id", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "assessment_runs";
+            referencedColumns: ["id", "tenant_id"];
+          },
+        ];
+      };
+      report_jobs: {
+        Row: {
+          assessment_run_id: string;
+          completed_at: string | null;
+          current_step: string;
+          error_message: string | null;
+          progress_percentage: number;
+          requested_at: string;
+          requested_by: string | null;
+          started_at: string | null;
+          status: Database["public"]["Enums"]["report_job_status"];
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          assessment_run_id: string;
+          completed_at?: string | null;
+          current_step?: string;
+          error_message?: string | null;
+          progress_percentage?: number;
+          requested_at?: string;
+          requested_by?: string | null;
+          started_at?: string | null;
+          status?: Database["public"]["Enums"]["report_job_status"];
+          tenant_id: string;
+        };
+        Update: {
+          assessment_run_id?: string;
+          completed_at?: string | null;
+          current_step?: string;
+          error_message?: string | null;
+          progress_percentage?: number;
+          requested_at?: string;
+          requested_by?: string | null;
+          started_at?: string | null;
+          status?: Database["public"]["Enums"]["report_job_status"];
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "report_jobs_requester_fk";
+            columns: ["requested_by", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id", "tenant_id"];
+          },
+          {
+            foreignKeyName: "report_jobs_run_fk";
+            columns: ["assessment_run_id", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "assessment_runs";
+            referencedColumns: ["id", "tenant_id"];
+          },
+          {
+            foreignKeyName: "report_jobs_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       risk_scoring_policies: {
         Row: {
           availability_weight: number;
@@ -636,6 +754,10 @@ export type Database = {
           user_name: string;
         }[];
       };
+      purge_raw_diagnostic_data: {
+        Args: { p_purge_reports?: boolean; p_run_id: string };
+        Returns: Json;
+      };
       register_assessment_upload: {
         Args: {
           p_allow_duplicate?: boolean;
@@ -645,6 +767,10 @@ export type Database = {
           p_tenant_id: string;
           p_title: string;
         };
+        Returns: Json;
+      };
+      request_report_generation: {
+        Args: { p_force?: boolean; p_run_id: string };
         Returns: Json;
       };
       revoke_invitation: {
@@ -667,6 +793,7 @@ export type Database = {
       os_family: "linux" | "windows";
       parsing_status: "success" | "partial_error" | "failed";
       report_format: "docx" | "pdf";
+      report_job_status: "queued" | "rendering" | "completed" | "failed";
       report_type: "detailed" | "summary" | "risk_plan";
       user_role: "owner" | "operator" | "viewer";
       user_status: "active" | "invited" | "suspended";
@@ -818,6 +945,7 @@ export const Constants = {
       os_family: ["linux", "windows"],
       parsing_status: ["success", "partial_error", "failed"],
       report_format: ["docx", "pdf"],
+      report_job_status: ["queued", "rendering", "completed", "failed"],
       report_type: ["detailed", "summary", "risk_plan"],
       user_role: ["owner", "operator", "viewer"],
       user_status: ["active", "invited", "suspended"],

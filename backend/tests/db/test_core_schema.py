@@ -24,6 +24,8 @@ CORE_TABLES = {
     "override_audit_logs",
     "risk_scoring_policies",
     "generated_reports",
+    "report_jobs",
+    "purge_audit_logs",
 }
 REASON = "방화벽 접근 제어로 보안 위협 해소됨"
 

@@ -25,7 +25,16 @@
 - `NEXT_PUBLIC_*` 두 값은 브라우저 번들에 들어가는 **공개 값**이라 빌드 인자로 넣는다. `SUPABASE_SERVICE_ROLE_KEY`·`DATABASE_URL`·`INVITATION_TOKEN_SALT` 는 **실행 시 환경 변수로만** 주입하고 이미지·저장소·로그에 남기지 않는다.
 - 보고서 글꼴을 Pretendard 로 바꾸려면 글꼴 파일을 볼륨으로 붙이고 `REPORT_FONT_DIR` 을 지정한다(없으면 Noto Sans CJK KR).
 
-## 3. 1단계: Fly.io 배포 (저장소 루트에서)
+## 3. 1단계: Fly.io 배포
+서비스 주소: https://hmva.fly.dev (웹 앱 `hmva`, 워커 앱 `hmva-worker`, 조직 `hms_dev`).
+
+### 3-1. 권장: GitHub Actions 로 배포
+1. Fly 조직 배포 토큰을 저장소 Settings → Secrets and variables → Actions 에 `FLY_API_TOKEN` 으로 등록(`production` 환경 사용 시 그 환경에 등록).
+2. Fly 대시보드에서 워커 앱 시크릿(`DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) 입력. `INVITATION_TOKEN_SALT` 는 두 앱에 같은 값으로 이미 대기(staged) 상태.
+3. Actions → "Deploy to Fly.io" → Run workflow → 대상(web / worker / both) 선택.
+- 웹 공개 값(`NEXT_PUBLIC_*`)은 `deploy/fly/web.toml` 의 `[build.args]` 에 있다.
+
+### 3-2. 직접 배포 (flyctl 이 설치된 PC, 저장소 루트에서)
 사전: `flyctl` 설치·로그인, 앱 이름 확정(`deploy/fly/*.toml` 의 `app`).
 
 ```bash

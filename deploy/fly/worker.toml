@@ -1,5 +1,5 @@
 # Fly.io 진단 워커 (파싱·판정·보고서 조판). 외부 포트 없음. 배포 명령은 docs/deploy.md 참고.
-app = "hms-worker"         # 실제 앱 이름으로 바꿀 것
+app = "hmva-worker"
 primary_region = "nrt"
 
 [env]

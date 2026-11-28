@@ -1,0 +1,46 @@
+# Fly.io 배포 (수동 실행). 저장소 Secrets 에 FLY_API_TOKEN(조직 hms_dev 배포 토큰)이 있어야 한다.
+# 워커는 Fly 대시보드에서 DATABASE_URL·SUPABASE_URL·SUPABASE_SERVICE_ROLE_KEY 를 넣은 뒤 배포한다.
+name: Deploy to Fly.io
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 배포 대상
+        type: choice
+        options: [web, worker, both]
+        default: web
+
+concurrency:
+  group: deploy-fly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    if: inputs.target == 'web' || inputs.target == 'both'
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@1.5
+        with:
+          version: 0.5.19
+      - run: flyctl deploy -c deploy/fly/web.toml --dockerfile frontend/Dockerfile --remote-only --ha=false .
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  worker:
+    if: inputs.target == 'worker' || inputs.target == 'both'
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@1.5
+        with:
+          version: 0.5.19
+      - run: flyctl deploy -c deploy/fly/worker.toml --dockerfile backend/Dockerfile --remote-only --ha=false backend
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

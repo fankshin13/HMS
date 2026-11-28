@@ -341,7 +341,7 @@ def test_anon_has_no_table_access(db: psycopg.Connection, table: str) -> None:
 def test_cross_tenant_update_has_no_effect(db: psycopg.Connection, sample: Sample) -> None:
     with as_role(db, "authenticated", sample.owner_b):
         updated = db.execute(
-            "update assets set confidentiality_score = 1 where id = %s", (sample.asset_a,)
+            "update users set name = '변경' where tenant_id = %s", (sample.tenant_a,)
         ).rowcount
     assert updated == 0
     assert (
@@ -349,14 +349,12 @@ def test_cross_tenant_update_has_no_effect(db: psycopg.Connection, sample: Sampl
     )
 
 
-def test_asset_importance_editable_by_operator_not_viewer(
-    db: psycopg.Connection, sample: Sample
-) -> None:
+def test_asset_importance_not_directly_writable(db: psycopg.Connection, sample: Sample) -> None:
+    """중요도는 점수 재계산과 함께 update_asset_importance() 로만 바꾼다."""
     query = "update assets set availability_score = 3 where id = %s"
-    with as_role(db, "authenticated", sample.viewer_a):
-        assert db.execute(query, (sample.asset_a,)).rowcount == 0
-    with as_role(db, "authenticated", sample.operator_a):
-        assert db.execute(query, (sample.asset_a,)).rowcount == 1
+    for actor in (sample.viewer_a, sample.operator_a, sample.owner_a):
+        with as_role(db, "authenticated", actor), expect_error(db, errors.InsufficientPrivilege):
+            db.execute(query, (sample.asset_a,))
 
 
 def test_users_cannot_change_asset_identity_or_tenant(
@@ -391,7 +389,7 @@ def test_only_owner_manages_team_and_risk_policy(db: psycopg.Connection, sample:
         "insert into users (tenant_id, email, name, role, status) "
         "values (%s, 'new@example.com', '신규 팀원', 'viewer', 'invited')"
     )
-    add_policy = "insert into risk_scoring_policies (tenant_id) values (%s)"
+    add_policy = "select public.save_risk_policy(%s, 1, 1, 1, 15, 8)"
     with as_role(db, "authenticated", sample.operator_a):
         with expect_error(db, errors.InsufficientPrivilege):
             db.execute(add_member, (sample.tenant_a,))

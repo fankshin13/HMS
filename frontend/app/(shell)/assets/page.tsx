@@ -14,6 +14,15 @@ import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "자산 목록" };
 
+/** 운영체제 표기. 버전 문자열에 이미 제품명이 있으면 반복하지 않는다. */
+function osLabel(osType: string, version: string | null): string {
+  const family = osType === "windows" ? "Windows" : "Linux";
+  if (!version) return family;
+  return version.toLowerCase().includes(family.toLowerCase())
+    ? version
+    : `${family} ${version}`;
+}
+
 export default async function AssetsPage() {
   const membership = await getMembershipWithRole([
     "owner",
@@ -96,16 +105,15 @@ export default async function AssetsPage() {
                     <div className="min-w-0">
                       <p className="truncate font-medium">{asset.hostname}</p>
                       <p className="text-caption text-muted-foreground">
-                        {asset.os_type === "windows" ? "Windows" : "Linux"}
-                        {asset.os_version ? ` ${asset.os_version}` : ""} ·
-                        중요도 {importance}({asset.confidentiality_score}·
+                        {osLabel(asset.os_type, asset.os_version)} · 중요도{" "}
+                        {importance}({asset.confidentiality_score}·
                         {asset.integrity_score}·{asset.availability_score})
                         {asset.last_assessed_at
                           ? ` · 최근 진단 ${formatSeoulDateTime(asset.last_assessed_at)}`
                           : " · 진단 기록 없음"}
                       </p>
                     </div>
-                    <div className="flex flex-col items-end gap-1 text-body">
+                    <div className="flex flex-col items-start gap-1 text-body sm:items-end">
                       <RiskBadge
                         category={riskCategory(
                           score > 0 ? "vulnerable" : "good",

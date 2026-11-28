@@ -1,0 +1,12 @@
+# Fly.io 진단 워커 (파싱·판정·보고서 조판). 외부 포트 없음. 배포 명령은 docs/deploy.md 참고.
+app = "hms-worker"         # 실제 앱 이름으로 바꿀 것
+primary_region = "nrt"
+
+[env]
+  TZ = "Asia/Seoul"
+
+# 워커는 DB 대기열을 'for update skip locked' 로 가져가므로 머신을 늘리면 그대로 병렬 처리된다.
+# 기본 1대, 대량 진단(50대 이상) 시기에는 `fly scale count 3 -c deploy/fly/worker.toml`.
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "2gb"

@@ -1,0 +1,18 @@
+# 사내 VM에서 부팅 시 자동 기동 (systemd). 저장소를 /opt/hms 에 두는 경우:
+#   sudo cp deploy/hms.service /etc/systemd/system/ && sudo systemctl enable --now hms
+[Unit]
+Description=HMS 취약점 진단 서비스 (web + worker)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/hms
+ExecStart=/usr/bin/docker compose -f deploy/compose.yaml --env-file deploy/.env up -d
+ExecStop=/usr/bin/docker compose -f deploy/compose.yaml --env-file deploy/.env down
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

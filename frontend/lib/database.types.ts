@@ -456,32 +456,35 @@ export type Database = {
       };
       purge_audit_logs: {
         Row: {
-          actor_user_id: string;
+          actor_user_id: string | null;
           assessment_run_id: string;
           created_at: string;
           id: string;
           purged_log_count: number;
           purged_reports: boolean;
           tenant_id: string;
+          trigger: string;
         };
         ComputedFields: never;
         Insert: {
-          actor_user_id: string;
+          actor_user_id?: string | null;
           assessment_run_id: string;
           created_at?: string;
           id?: string;
           purged_log_count: number;
           purged_reports?: boolean;
           tenant_id: string;
+          trigger?: string;
         };
         Update: {
-          actor_user_id?: string;
+          actor_user_id?: string | null;
           assessment_run_id?: string;
           created_at?: string;
           id?: string;
           purged_log_count?: number;
           purged_reports?: boolean;
           tenant_id?: string;
+          trigger?: string;
         };
         Relationships: [
           {
@@ -744,6 +747,26 @@ export type Database = {
           warning_threshold: number;
         }[];
       };
+      get_asset_overview: {
+        Args: { p_tenant_id: string };
+        Returns: {
+          asset_id: string;
+          availability_score: number;
+          checks: number;
+          confidentiality_score: number;
+          critical: number;
+          hostname: string;
+          integrity_score: number;
+          last_assessed_at: string;
+          latest_run_id: string;
+          latest_run_title: string;
+          max_risk_score: number;
+          os_type: Database["public"]["Enums"]["os_family"];
+          os_version: string;
+          vulnerable: number;
+        }[];
+      };
+      get_dashboard_summary: { Args: { p_tenant_id: string }; Returns: Json };
       inspect_invitation: {
         Args: { p_token_hash: string };
         Returns: {
@@ -776,6 +799,26 @@ export type Database = {
       revoke_invitation: {
         Args: { p_invitation_id: string };
         Returns: undefined;
+      };
+      save_risk_policy: {
+        Args: {
+          p_availability_weight: number;
+          p_confidentiality_weight: number;
+          p_critical_threshold: number;
+          p_integrity_weight: number;
+          p_tenant_id: string;
+          p_warning_threshold: number;
+        };
+        Returns: Json;
+      };
+      update_asset_importance: {
+        Args: {
+          p_asset_id: string;
+          p_availability: number;
+          p_confidentiality: number;
+          p_integrity: number;
+        };
+        Returns: Json;
       };
     };
     Enums: {

@@ -88,5 +88,9 @@ Supabase 프로젝트 설정: Authentication → URL Configuration 의 Redirect 
 - 원격 프로젝트 「시스템 취약점 진단 Project」(ref `ghcpajruzahivwewpktx`, ap-northeast-1)에 `supabase/migrations` 전체를 적용했습니다. 보안 점검(advisor)은 ERROR 없음(경고는 내부에서 로그인·역할을 확인하는 의도된 SECURITY DEFINER 함수), 성능 점검의 외래키 인덱스 안내는 `20261128060000_foreign_key_indexes.sql` 로 해소했습니다.
 - 배포 전 대시보드에서 할 일: Auth 사이트 URL·리디렉션 URL(`<APP_URL>/auth/callback`) 등록, 이메일(매직 링크) 발신 설정, 앱 환경 변수(`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`)와 워커 시크릿(`SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`) 주입.
 
+## 배포 (Docker · Fly.io → 사내 VM)
+- 웹 `frontend/Dockerfile`(Next.js standalone, 루트에서 빌드), 워커 `backend/Dockerfile`(Ubuntu 24.04 + Python 3.11, 한글 PDF 조판 포함).
+- 1단계 Fly.io 도쿄(`deploy/fly/*.toml`), 2단계 사내 VM(`deploy/compose.yaml` + `deploy/hms.service`). 절차·점검 항목은 [docs/deploy.md](docs/deploy.md).
+
 ## 환경 변수
 `.env.example`에 이름만 정리돼 있습니다. 값은 `.env`(커밋 금지) 또는 서버 측 시크릿 저장소에 둡니다.

@@ -13,11 +13,11 @@ export function Brand() {
   );
 }
 
-export function WorkspaceBadge() {
+export function WorkspaceBadge({ name }: { name: string | null }) {
   return (
     <div className="mx-3 rounded-md border border-border px-3 py-2">
       <p className="text-caption text-muted-foreground">워크스페이스</p>
-      <p className="text-body font-medium">연결 전</p>
+      <p className="text-body font-medium">{name ?? "소속 없음"}</p>
     </div>
   );
 }

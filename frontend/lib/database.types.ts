@@ -571,12 +571,84 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      accept_invitation: {
+        Args: { p_token_hash: string };
+        Returns: {
+          status: string;
+          tenant_id: string;
+        }[];
+      };
       apply_item_override: {
         Args: {
           p_item_result_id: string;
           p_new_status: Database["public"]["Enums"]["item_status"];
           p_reason: string;
+          p_run_id: string;
         };
+        Returns: Json;
+      };
+      create_invitation: {
+        Args: {
+          p_email: string;
+          p_name: string;
+          p_role: Database["public"]["Enums"]["user_role"];
+          p_tenant_id: string;
+          p_token_hash: string;
+          p_valid_hours: number;
+        };
+        Returns: {
+          expires_at: string;
+          invitation_id: string;
+        }[];
+      };
+      get_assessment_progress: {
+        Args: { p_run_id: string };
+        Returns: {
+          good_count: number;
+          na_count: number;
+          processed_assets: number;
+          quarantined_logs: number;
+          status: Database["public"]["Enums"]["assessment_status"];
+          total_assets: number;
+          total_checks: number;
+          vulnerable_count: number;
+        }[];
+      };
+      get_assessment_risk_summary: {
+        Args: { p_run_id: string };
+        Returns: {
+          caution_count: number;
+          critical_count: number;
+          critical_threshold: number;
+          max_risk_score: number;
+          vulnerable_count: number;
+          warning_count: number;
+          warning_threshold: number;
+        }[];
+      };
+      inspect_invitation: {
+        Args: { p_token_hash: string };
+        Returns: {
+          email: string;
+          role: Database["public"]["Enums"]["user_role"];
+          status: string;
+          tenant_name: string;
+          user_name: string;
+        }[];
+      };
+      register_assessment_upload: {
+        Args: {
+          p_allow_duplicate?: boolean;
+          p_logs: Json;
+          p_run_id: string;
+          p_sha256: string;
+          p_tenant_id: string;
+          p_title: string;
+        };
+        Returns: Json;
+      };
+      revoke_invitation: {
+        Args: { p_invitation_id: string };
         Returns: undefined;
       };
     };
@@ -588,7 +660,8 @@ export type Database = {
         | "directory_file_management"
         | "service_management"
         | "patch_management"
-        | "log_management";
+        | "log_management"
+        | "security_management";
       compliance_risk_level: "high" | "medium" | "low";
       item_status: "good" | "vulnerable" | "na";
       os_family: "linux" | "windows";
@@ -738,6 +811,7 @@ export const Constants = {
         "service_management",
         "patch_management",
         "log_management",
+        "security_management",
       ],
       compliance_risk_level: ["high", "medium", "low"],
       item_status: ["good", "vulnerable", "na"],

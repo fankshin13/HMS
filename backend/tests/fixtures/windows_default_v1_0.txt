@@ -28,6 +28,12 @@ EnableGuestAccount = 0
 SeRemoteShutdownPrivilege = *S-1-5-32-544
 MACHINE\System\CurrentControlSet\Control\Lsa\RestrictAnonymous=4,0
 MACHINE\System\CurrentControlSet\Control\Lsa\RestrictAnonymousSAM=4,1
+MACHINE\System\CurrentControlSet\Control\Lsa\EveryoneIncludesAnonymous=4,0
+MACHINE\System\CurrentControlSet\Control\Lsa\LimitBlankPasswordUse=4,1
+LSAAnonymousNameLookup = 0
+MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\DontDisplayLastUserName=4,0
+MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\LegalNoticeCaption=1,""
+MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\LegalNoticeText=7,
 ==== WIN-SECURITY_POLICY END ====
 
 ==== WIN-SERVICES BEGIN ====
@@ -54,6 +60,32 @@ AutoShareWks=
 ==== WIN-HOTFIX BEGIN ====
 HOTFIX=KB5044281 INSTALLED=10/14/2026 00:00:00 DESC=Security Update
 ==== WIN-HOTFIX END ====
+
+==== WIN-AUDIT_POLICY BEGIN ====
+$ auditpol /get /category:*
+System audit policy
+Category/Subcategory                      Setting
+Logon/Logoff
+  Logon                                   Success
+==== WIN-AUDIT_POLICY END ====
+
+==== WIN-EVENTLOG BEGIN ====
+$ wevtutil gl Security
+name: Security
+  retention: false
+  autoBackup: false
+  maxSize: 20971520
+$ wevtutil gl System
+name: System
+  retention: false
+  autoBackup: false
+  maxSize: 20971520
+$ wevtutil gl Application
+name: Application
+  retention: false
+  autoBackup: false
+  maxSize: 20971520
+==== WIN-EVENTLOG END ====
 
 ==== WIN-REMOTE_ACCESS BEGIN ====
 fDenyTSConnections=0

@@ -128,7 +128,7 @@ def test_report_data_reflects_final_results(conn: psycopg.Connection) -> None:
     run = analyzed(conn, hosts=3)
     data = load_report_data(conn, run.run, run.tenant, NOW)
     assert [a.hostname for a in data.assets] == ["WIN-SRV-01", "host-00", "host-01"]
-    assert [len(a.items) for a in data.assets] == [32, 41, 41]
+    assert [len(a.items) for a in data.assets] == [64, 67, 67]
     assert data.quarantined and data.quarantined[0].hostname is None
     item = next(i for i in data.assets[1].items if i.code == "U-18")
     assert item.final_status == "vulnerable" and item.score > 0

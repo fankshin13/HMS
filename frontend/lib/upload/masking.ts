@@ -20,9 +20,12 @@ export const USERNAME_MASK_REGEX =
 // 홈 디렉터리 경로의 계정 이름 (/home/이름)
 export const HOME_PATH_REGEX = /(\/home\/)([A-Za-z0-9_.-]+)/g;
 
-// Windows 관리자 그룹 구성원 "ADMIN_MEMBER=컴퓨터\이름" 의 이름 부분
+// Windows 관리자·원격 데스크톱 그룹 구성원 "ADMIN_MEMBER=컴퓨터\이름" 의 이름 부분
 export const ADMIN_MEMBER_REGEX =
-  /\b(ADMIN_MEMBER=(?:[^\s\\]+\\)?)([A-Za-z0-9_.$-]+)/g;
+  /\b((?:ADMIN|RDP)_MEMBER=(?:[^\s\\]+\\)?)([A-Za-z0-9_.$-]+)/g;
+
+// Windows 사용자 폴더 경로의 계정 이름 (C:\Users\이름)
+export const WINDOWS_PROFILE_REGEX = /([A-Za-z]:\\Users\\)([A-Za-z0-9_.$-]+)/g;
 
 // 판정에 필요하고 조직을 식별하지 않는 OS 기본 계정은 그대로 둔다.
 const SYSTEM_ACCOUNTS = new Set(
@@ -70,6 +73,9 @@ const SYSTEM_ACCOUNTS = new Set(
     "bind",
     "snmp",
     "unknown",
+    // Windows 기본 프로필 폴더
+    "public",
+    "default",
   ].map((name) => name.toLowerCase()),
 );
 
@@ -114,7 +120,15 @@ export class MaskingSession {
           if (SYSTEM_ACCOUNTS.has(name.toLowerCase())) return match;
           maskedUserCount += 1;
           return `${prefix}${this.alias(this.users, name, "MASKED_USER")}`;
-        });
+        })
+        .replace(
+          WINDOWS_PROFILE_REGEX,
+          (match, prefix: string, name: string) => {
+            if (SYSTEM_ACCOUNTS.has(name.toLowerCase())) return match;
+            maskedUserCount += 1;
+            return `${prefix}${this.alias(this.users, name, "MASKED_USER")}`;
+          },
+        );
     }
     return { processedText, maskedIpCount, maskedUserCount };
   }

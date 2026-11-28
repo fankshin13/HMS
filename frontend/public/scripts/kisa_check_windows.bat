@@ -20,7 +20,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-set "SCRIPT_VERSION=1.1.0"
+set "SCRIPT_VERSION=1.2.0"
 set "PS=powershell -NoProfile -ExecutionPolicy Bypass -Command [Console]::OutputEncoding=[Text.Encoding]::UTF8;"
 for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMddHHmmss"') do set "STAMP=%%i"
 for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-ddTHH:mm:sszzz"') do set "ISO_DATE=%%i"
@@ -57,6 +57,7 @@ set "SECCFG=%TEMP%\kisa_secpol_%STAMP%.inf"
 secedit /export /cfg "%SECCFG%" /areas SECURITYPOLICY USER_RIGHTS >nul 2>&1
 if exist "%SECCFG%" (
   %PS% "Get-Content -Path $env:SECCFG | Select-String -Pattern '^(PasswordComplexity|ClearTextPassword|MinimumPasswordLength|MaximumPasswordAge|MinimumPasswordAge|PasswordHistorySize|LockoutBadCount|ResetLockoutCount|LockoutDuration|NewAdministratorName|NewGuestName|EnableGuestAccount|LSAAnonymousNameLookup|SeRemoteShutdownPrivilege|SeNetworkLogonRight|SeRemoteInteractiveLogonRight|MACHINE\\System\\CurrentControlSet\\Control\\Lsa\\(RestrictAnonymous|RestrictAnonymousSAM|LimitBlankPasswordUse|EveryoneIncludesAnonymous|NoLMHash|CrashOnAuditFail)|MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\System\\(DontDisplayLastUserName|LegalNoticeCaption|LegalNoticeText|InactivityTimeoutSecs|ShutdownWithoutLogon)|MACHINE\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\AllocateDASD)\b' | ForEach-Object { $_.Line }"
+  %PS% "Get-Content -Path $env:SECCFG | Select-String -Pattern '^(SeInteractiveLogonRight|Audit(System|Logon|ObjectAccess|PrivilegeUse|PolicyChange|AccountManage|ProcessTracking|DSAccess|AccountLogon)(Events)?|MaxClockSkew|MACHINE\\System\\CurrentControlSet\\Control\\Lsa\\LmCompatibilityLevel|MACHINE\\System\\CurrentControlSet\\Control\\Print\\Providers\\LanMan Print Services\\Servers\\AddPrinterDrivers|MACHINE\\System\\CurrentControlSet\\Services\\LanManServer\\Parameters\\(AutoDisconnect|EnableForcedLogOff)|MACHINE\\System\\CurrentControlSet\\Services\\Netlogon\\Parameters\\(RequireSignOrSeal|SealSecureChannel|SignSecureChannel))\b' | ForEach-Object { $_.Line }"
   del /q "%SECCFG%" >nul 2>&1
 ) else (
   echo NOT_AVAILABLE=secedit export failed
@@ -65,7 +66,7 @@ echo ==== WIN-SECURITY_POLICY END ====
 echo.
 
 echo ==== WIN-SERVICES BEGIN ====
-%PS% "Get-Service -Name TlntSvr,FTPSVC,MSFTPSVC,SNMP,RemoteRegistry,W3SVC,SharedAccess,Spooler,DNS,Alerter,ClipSrv,Browser,TrkWks,TrkSvr,HidServ,ImapiService,Irmon,Messenger,mnmsrvc,WmdmPmSN,simptcp,upnphost,WZCSVC,WerSvc -ErrorAction SilentlyContinue | ForEach-Object { 'SERVICE=' + $_.Name + ' STATUS=' + $_.Status + ' START=' + $_.StartType }"
+%PS% "Get-Service -Name TlntSvr,FTPSVC,MSFTPSVC,SNMP,W32Time,SMTPSVC,RemoteRegistry,W3SVC,SharedAccess,Spooler,DNS,Alerter,ClipSrv,Browser,TrkWks,TrkSvr,HidServ,ImapiService,Irmon,Messenger,mnmsrvc,WmdmPmSN,simptcp,upnphost,WZCSVC,WerSvc -ErrorAction SilentlyContinue | ForEach-Object { 'SERVICE=' + $_.Name + ' STATUS=' + $_.Status + ' START=' + $_.StartType }"
 echo ==== WIN-SERVICES END ====
 echo.
 
@@ -132,7 +133,9 @@ echo.
 
 echo ==== WIN-IIS_FTP BEGIN ====
 echo $ IIS FTP sites
-%PS% "try { Import-Module WebAdministration -ErrorAction Stop; Get-ChildItem IIS:\Sites | Where-Object { $_.bindings.Collection.protocol -contains 'ftp' } | ForEach-Object { $n = $_.name; $sec = $_.ftpServer.security; $path = [Environment]::ExpandEnvironmentVariables($_.physicalPath); $every = [bool]((Get-Acl -Path $path -ErrorAction SilentlyContinue).Access | Where-Object { $_.IdentityReference.Value -match 'Everyone' }); $allow = (Get-WebConfigurationProperty -PSPath 'IIS:\' -Location $n -Filter 'system.ftpServer/security/ipSecurity' -Name allowUnlisted -ErrorAction SilentlyContinue).Value; 'FTP_SITE=' + ($n -replace '\s','_') + ' SSL_CONTROL=' + $sec.ssl.controlChannelPolicy + ' SSL_DATA=' + $sec.ssl.dataChannelPolicy + ' ANONYMOUS=' + $sec.authentication.anonymousAuthentication.enabled + ' EVERYONE=' + $every + ' ALLOW_UNLISTED=' + $allow } } catch { 'IIS_MODULE=unavailable' }"
+%PS% "try { Import-Module WebAdministration -ErrorAction Stop; Get-ChildItem IIS:\Sites | Where-Object { $_.bindings.Collection.protocol -contains 'ftp' } | ForEach-Object { $n = $_.name; $sec = $_.ftpServer.security; $path = [Environment]::ExpandEnvironmentVariables($_.physicalPath); $every = [bool]((Get-Acl -Path $path -ErrorAction SilentlyContinue).Access | Where-Object { $_.IdentityReference.Value -match 'Everyone' }); $allow = (Get-WebConfigurationProperty -PSPath 'IIS:\' -Location $n -Filter 'system.ftpServer/security/ipSecurity' -Name allowUnlisted -ErrorAction SilentlyContinue).Value; 'FTP_SITE=' + ($n -replace '\s','_') + ' SUPPRESS_BANNER=' + $_.ftpServer.messages.suppressDefaultBanner + ' SSL_CONTROL=' + $sec.ssl.controlChannelPolicy + ' SSL_DATA=' + $sec.ssl.dataChannelPolicy + ' ANONYMOUS=' + $sec.authentication.anonymousAuthentication.enabled + ' EVERYONE=' + $every + ' ALLOW_UNLISTED=' + $allow } } catch { 'IIS_MODULE=unavailable' }"
+echo $ IIS server header
+%PS% "try { Import-Module WebAdministration -ErrorAction Stop; 'IIS_REMOVE_SERVER_HEADER=' + (Get-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/security/requestFiltering' -Name removeServerHeader -ErrorAction Stop).Value } catch { 'IIS_REMOVE_SERVER_HEADER=unknown' }"
 echo $ MSADC virtual directory
 %PS% "try { Import-Module WebAdministration -ErrorAction Stop; 'MSADC_VDIR=' + [bool](Get-WebVirtualDirectory -Site 'Default Web Site' -Name 'MSADC' -ErrorAction SilentlyContinue) } catch { 'MSADC_VDIR=unknown' }"
 echo ==== WIN-IIS_FTP END ====
@@ -140,7 +143,7 @@ echo.
 
 echo ==== WIN-DNS BEGIN ====
 echo $ Get-DnsServerZone (0 = any server, 1 = name servers, 2 = listed servers, 3 = no transfer)
-%PS% "try { Get-DnsServerZone -ErrorAction Stop | Where-Object { -not $_.IsAutoCreated -and $_.ZoneType -eq 'Primary' } | ForEach-Object { 'DNS_ZONE_TRANSFER=' + [int]$_.SecureSecondaries } } catch { 'DNS_ZONES=unavailable' }"
+%PS% "try { Get-DnsServerZone -ErrorAction Stop | Where-Object { -not $_.IsAutoCreated -and $_.ZoneType -eq 'Primary' } | ForEach-Object { 'DNS_ZONE_TRANSFER=' + [int]$_.SecureSecondaries + ' DNS_ZONE_UPDATE=' + $_.DynamicUpdate } } catch { 'DNS_ZONES=unavailable' }"
 echo ==== WIN-DNS END ====
 echo.
 
@@ -150,6 +153,31 @@ echo ==== WIN-PATCH_AV BEGIN ====
 echo $ antivirus services
 %PS% "Get-CimInstance Win32_Service | Where-Object { $_.DisplayName -match 'AhnLab|V3 |ALYac|Symantec|McAfee|Trellix|Trend Micro|Kaspersky|ESET|Sophos|CrowdStrike|SentinelOne|Bitdefender' } | ForEach-Object { 'AV_SERVICE=' + ($_.Name -replace '\s','_') + ' STATE=' + $_.State }"
 echo ==== WIN-PATCH_AV END ====
+echo.
+
+echo ==== WIN-HARDENING BEGIN ====
+REM Remote Desktop Users members (SID S-1-5-32-555) and RDP idle timeout (milliseconds)
+echo $ Get-LocalGroupMember -SID S-1-5-32-555
+%PS% "try { Get-LocalGroupMember -SID 'S-1-5-32-555' -ErrorAction Stop | ForEach-Object { 'RDP_MEMBER=' + ($_.Name -replace '\s','_') + ' CLASS=' + $_.ObjectClass } } catch { 'RDP_MEMBER_ERROR=' + $_.Exception.GetType().Name }"
+%PS% "function R($l,$p,$n) { $v = (Get-ItemProperty -Path $p -Name $n -ErrorAction SilentlyContinue).$n; if ($null -eq $v) { $v = 'NOT_SET' }; $l + '=' + $v }; R 'PolicyMaxIdleTime' 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' 'MaxIdleTime'; R 'RdpMaxIdleTime' 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' 'MaxIdleTime'; R 'TelnetSecurityMechanism' 'HKLM:\SOFTWARE\Microsoft\TelnetServer\1.0' 'SecurityMechanism'; R 'W32TimeType' 'HKLM:\SYSTEM\CurrentControlSet\Services\W32Time\Parameters' 'Type'; R 'SynAttackProtect' 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters' 'SynAttackProtect'; R 'EnableDeadGWDetect' 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters' 'EnableDeadGWDetect'; R 'KeepAliveTime' 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters' 'KeepAliveTime'; R 'NoNameReleaseOnDemand' 'HKLM:\SYSTEM\CurrentControlSet\Services\NetBT\Parameters' 'NoNameReleaseOnDemand'"
+%PS% "$s = (Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\W32Time\Parameters' -Name NtpServer -ErrorAction SilentlyContinue).NtpServer; 'NTP_SERVER_SET=' + [bool]$s"
+echo $ SNMP communities (names masked) and permitted managers
+%PS% "$c = Get-Item -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\SNMP\Parameters\ValidCommunities' -ErrorAction SilentlyContinue; if ($c) { $c.Property | ForEach-Object { $v = $_; $d = ($v -eq 'public' -or $v -eq 'private'); $ok = (-not $d) -and ((($v.Length -ge 10) -and ($v -match '[A-Za-z]') -and ($v -match '[0-9]')) -or (($v.Length -ge 8) -and ($v -match '[A-Za-z]') -and ($v -match '[0-9]') -and ($v -match '[^A-Za-z0-9]'))); 'SNMP_COMMUNITY=' + $(if ($d) { $v } else { 'MASKED' }) + ' STRENGTH=' + $(if ($ok) { 'ok' } else { 'weak' }) } }; $m = Get-Item -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\SNMP\Parameters\PermittedManagers' -ErrorAction SilentlyContinue; 'SNMP_PERMITTED_MANAGERS=' + $(if ($m) { $m.Property.Count } else { 0 })"
+echo $ ODBC system DSN
+%PS% "$o = Get-Item -Path 'HKLM:\SOFTWARE\ODBC\ODBC.INI\ODBC Data Sources' -ErrorAction SilentlyContinue; if ($o) { $o.Property | ForEach-Object { 'ODBC_DSN=' + ($_ -replace '\s','_') } }"
+echo $ Get-ScheduledTask (non-Microsoft)
+%PS% "Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object { $_.TaskPath -notlike '\Microsoft\*' } | ForEach-Object { 'TASK=' + (($_.TaskPath + $_.TaskName) -replace '\s','_') + ' STATE=' + $_.State }"
+echo $ Get-Acl event log folder
+%PS% "$a = (Get-Acl -Path (Join-Path $env:windir 'System32\winevt\Logs') -ErrorAction SilentlyContinue).Access; 'LOGDIR_EVERYONE=' + [bool]($a | Where-Object { $_.IdentityReference.Value -match 'Everyone' })"
+echo $ user home folders with Everyone
+%PS% "Get-ChildItem -Path (Join-Path $env:SystemDrive 'Users') -Directory -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -notin @('Public','Default','Default User','All Users') } | ForEach-Object { 'HOME_DIR=' + $_.FullName + ' EVERYONE=' + [bool]((Get-Acl -Path $_.FullName -ErrorAction SilentlyContinue).Access | Where-Object { $_.IdentityReference.Value -match 'Everyone' }) }"
+echo $ fixed volumes
+%PS% "Get-Volume -ErrorAction SilentlyContinue | Where-Object { $_.DriveType -eq 'Fixed' -and $_.DriveLetter } | ForEach-Object { 'VOLUME=' + $_.DriveLetter + ' FS=' + $_.FileSystemType }"
+echo $ startup programs
+%PS% "Get-CimInstance Win32_StartupCommand -ErrorAction SilentlyContinue | ForEach-Object { 'STARTUP=' + ($_.Name -replace '\s','_') + ' LOCATION=' + ($_.Location -replace '\s','_') }"
+%PS% "'PART_OF_DOMAIN=' + (Get-CimInstance Win32_ComputerSystem).PartOfDomain"
+%PS% "Get-NetFirewallProfile -ErrorAction SilentlyContinue | ForEach-Object { 'FIREWALL=' + $_.Name + ' ENABLED=' + $_.Enabled }"
+echo ==== WIN-HARDENING END ====
 echo.
 
 echo [END]

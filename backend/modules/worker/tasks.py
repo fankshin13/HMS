@@ -1,6 +1,7 @@
 """진단 차수 파싱·판정 태스크.
 
-상태 전이: queued → parsing → scoring (치명적 인프라 오류 시 parsing → failed).
+상태 전이: queued → parsing → scoring → completed (치명적 인프라 오류 시 failed).
+scoring 단계에서 취약 항목의 위험 점수를 계산한다(modules/compliance/risk_evaluator.py).
 이미 queued 가 아닌 차수는 아무것도 바꾸지 않는다(멱등). 로그 하나의 결함은 그 로그만 격리한다.
 """
 
@@ -12,6 +13,7 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from modules.compliance.guideline_mapper import map_log
+from modules.compliance.risk_evaluator import RiskPolicy, risk_score
 from modules.parser.log_parser import ErrorLine, parse_log
 from modules.worker.storage import LogSource
 
@@ -24,9 +26,22 @@ where id = %s and tenant_id = %s and status = 'queued'
 returning id
 """
 
+SCORE_INPUTS = """
+select i.id, i.final_status::text, g.risk_level::text,
+  a.confidentiality_score, a.integrity_score, a.availability_score,
+  coalesce(p.confidentiality_weight, 1.00), coalesce(p.integrity_weight, 1.00),
+  coalesce(p.availability_weight, 1.00)
+from public.inspection_item_results i
+join public.assets a on a.id = i.asset_id
+join public.compliance_guidelines g on g.item_code = i.item_code
+left join public.risk_scoring_policies p on p.tenant_id = i.tenant_id
+where i.assessment_run_id = %s
+"""
+
 FINISH_RUN = """
 update public.assessment_runs
-set status = 'scoring',
+set status = 'completed',
+    completed_at = now(),
     vulnerable_items_count = (
       select count(*) from public.inspection_item_results
       where assessment_run_id = %(run)s and final_status = 'vulnerable'
@@ -134,9 +149,27 @@ def run_assessment_parsing(
         return _summary(conn, assessment_run_id)
 
     with conn.transaction():
+        conn.execute(
+            "update public.assessment_runs set status = 'scoring' where id = %s",
+            (assessment_run_id,),
+        )
+    with conn.transaction():
+        _score_results(conn, assessment_run_id)
         conn.execute(FINISH_RUN, {"run": assessment_run_id})
         conn.execute(TOUCH_ASSETS, (assessment_run_id,))
     return _summary(conn, assessment_run_id)
+
+
+def _score_results(conn: psycopg.Connection, run_id: UUID) -> None:
+    updates = []
+    for result_id, status, level, c, i, a, wc, wi, wa in conn.execute(SCORE_INPUTS, (run_id,)):
+        policy = RiskPolicy(confidentiality_weight=wc, integrity_weight=wi, availability_weight=wa)
+        updates.append((risk_score(status, level, c, i, a, policy), result_id))
+    with conn.cursor() as cur:
+        cur.executemany(
+            "update public.inspection_item_results set calculated_risk_score = %s where id = %s",
+            updates,
+        )
 
 
 def _process_logs(

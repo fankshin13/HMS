@@ -4,7 +4,8 @@ import { isInProgress, progressPercentage } from "./labels";
 describe("progressPercentage", () => {
   it("is 0 while queued and 100 once parsing is finished", () => {
     expect(progressPercentage("queued", 50, 0)).toBe(0);
-    expect(progressPercentage("scoring", 50, 50)).toBe(100);
+    expect(progressPercentage("completed", 50, 50)).toBe(100);
+    expect(progressPercentage("scoring", 50, 50)).toBe(99);
     expect(progressPercentage("failed", 50, 10)).toBe(100);
   });
 
@@ -16,13 +17,20 @@ describe("progressPercentage", () => {
 });
 
 describe("isInProgress", () => {
-  it("only queued and parsing poll for updates", () => {
+  it("polls while queued, parsing or scoring", () => {
     const statuses: Parameters<typeof isInProgress>[0][] = [
       "queued",
       "parsing",
       "scoring",
+      "completed",
       "failed",
     ];
-    expect(statuses.map(isInProgress)).toEqual([true, true, false, false]);
+    expect(statuses.map(isInProgress)).toEqual([
+      true,
+      true,
+      true,
+      false,
+      false,
+    ]);
   });
 });

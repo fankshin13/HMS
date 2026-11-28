@@ -26,14 +26,14 @@ export const ITEM_STATUS_LABELS: Record<Enums["item_status"], string> = {
 export const RUN_STATUS_LABELS: Record<Enums["assessment_status"], string> = {
   queued: "분석 대기",
   parsing: "파싱·판정 중",
-  scoring: "판정 완료(위험도 산정 대기)",
+  scoring: "위험도 산정 중",
   rendering: "보고서 생성 중",
-  completed: "완료",
+  completed: "분석 완료",
   failed: "실패",
 };
 
 export function isInProgress(status: Enums["assessment_status"]): boolean {
-  return status === "queued" || status === "parsing";
+  return status === "queued" || status === "parsing" || status === "scoring";
 }
 
 export function progressPercentage(
@@ -42,6 +42,7 @@ export function progressPercentage(
   processed: number,
 ): number {
   if (status === "queued") return 0;
+  if (status === "scoring") return 99;
   if (status !== "parsing") return 100;
   if (totalAssets === 0) return 0;
   return Math.min(99, Math.round((processed / totalAssets) * 100));

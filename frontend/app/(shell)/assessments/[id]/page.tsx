@@ -9,52 +9,37 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
+import { ItemEvidence } from "@/components/assessment/item-evidence";
+import { ItemFilterForm } from "@/components/assessment/item-filter-form";
 import { ItemStatusBadge } from "@/components/assessment/item-status-badge";
 import { ParsingProgress } from "@/components/assessment/parsing-progress";
 import { buttonStyles } from "@/components/common/button-styles";
 import { EmptyState } from "@/components/common/empty-state";
-import { inputStyles, labelStyles } from "@/components/common/form-styles";
 import { PageHeader } from "@/components/common/page-header";
 import {
   CATEGORY_LABELS,
-  ITEM_STATUS_LABELS,
   RISK_LABELS,
   RUN_STATUS_LABELS,
   isInProgress,
   progressPercentage,
 } from "@/lib/assessments/labels";
-import type { Database } from "@/lib/database.types";
+import {
+  ITEM_PAGE_SIZE,
+  type SearchParams,
+  firstParam,
+  itemsHref,
+  parseItemFilters,
+} from "@/lib/assessments/item-filters";
 import { formatSeoulDateTime } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "진단 결과" };
 
-type Enums = Database["public"]["Enums"];
-type SearchParams = Promise<Record<string, string | string[] | undefined>>;
-
-const PAGE_SIZE = 50;
-
 // 타입 추론을 위해 하나의 문자열 리터럴로 둔다
 const ITEM_SELECT =
   "id, item_code, final_status, stdout_snippet, raw_log_start_line, raw_log_end_line, assets(hostname), compliance_guidelines!inner(name, category, risk_level, good_condition, vulnerable_condition, remediation_guide)";
 
-const filtersSchema = z.object({
-  tab: z.enum(["items", "quarantine"]).catch("items"),
-  asset: z.string().uuid().optional().catch(undefined),
-  status: z.enum(["good", "vulnerable", "na"]).optional().catch(undefined),
-  category: z
-    .enum([
-      "account_management",
-      "directory_file_management",
-      "service_management",
-      "patch_management",
-      "log_management",
-      "security_management",
-    ])
-    .optional()
-    .catch(undefined),
-  page: z.coerce.number().int().min(1).catch(1),
-});
+const tabSchema = z.enum(["items", "quarantine"]).catch("items");
 
 const errorListSchema = z.array(
   z.object({
@@ -86,21 +71,6 @@ function errorsOf(
   return [];
 }
 
-function splitSnippet(snippet: string | null): {
-  reason: string | null;
-  evidence: string;
-} {
-  if (!snippet) return { reason: null, evidence: "" };
-  const [first, ...rest] = snippet.split("\n");
-  if (first?.startsWith("[판정 근거] "))
-    return { reason: first.slice(8), evidence: rest.join("\n") };
-  return { reason: null, evidence: snippet };
-}
-
-function first(value: string | string[] | undefined): string | undefined {
-  return Array.isArray(value) ? value[0] : value;
-}
-
 export default async function AssessmentPage({
   params,
   searchParams,
@@ -111,13 +81,10 @@ export default async function AssessmentPage({
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) notFound();
   const raw = await searchParams;
-  const filters = filtersSchema.parse({
-    tab: first(raw.tab),
-    asset: first(raw.asset),
-    status: first(raw.status),
-    category: first(raw.category),
-    page: first(raw.page),
-  });
+  const filters = {
+    ...parseItemFilters(raw),
+    tab: tabSchema.parse(firstParam(raw.tab)),
+  };
 
   const supabase = await createClient();
   const [
@@ -313,7 +280,7 @@ export default async function AssessmentPage({
   );
 }
 
-type Filters = z.infer<typeof filtersSchema>;
+type Filters = ReturnType<typeof parseItemFilters>;
 
 async function ItemsTab({
   base,
@@ -339,106 +306,36 @@ async function ItemsTab({
   if (filters.status) query = query.eq("final_status", filters.status);
   if (filters.category)
     query = query.eq("compliance_guidelines.category", filters.category);
-  const from = (filters.page - 1) * PAGE_SIZE;
+  const from = (filters.page - 1) * ITEM_PAGE_SIZE;
   const { data, count, error } = await query
     .order("item_code")
     .order("asset_id")
-    .range(from, from + PAGE_SIZE - 1);
+    .range(from, from + ITEM_PAGE_SIZE - 1);
   if (error) {
     console.error("점검 항목 조회 실패", error.code);
     throw new Error("점검 항목을 불러오지 못했습니다");
   }
   const total = count ?? 0;
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const pageHref = (page: number) => {
-    const params = new URLSearchParams({ tab: "items", page: String(page) });
-    if (filters.asset) params.set("asset", filters.asset);
-    if (filters.status) params.set("status", filters.status);
-    if (filters.category) params.set("category", filters.category);
-    return `${base}?${params}`;
-  };
+  const pages = Math.max(1, Math.ceil(total / ITEM_PAGE_SIZE));
+  const pageHref = (page: number) =>
+    itemsHref(base, filters, { tab: "items", page: String(page) });
 
   return (
     <section aria-labelledby="items-title" className="flex flex-col gap-4">
       <h2 id="items-title" className="sr-only">
         점검 항목 판정 결과
       </h2>
-      <form
-        method="get"
-        className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end"
-      >
-        <input type="hidden" name="tab" value="items" />
-        <div className="flex flex-col gap-1">
-          <label htmlFor="filter-asset" className={labelStyles}>
-            자산
-          </label>
-          <select
-            id="filter-asset"
-            name="asset"
-            defaultValue={filters.asset ?? ""}
-            className={inputStyles}
-          >
-            <option value="">정상 분석 자산 전체</option>
-            {assetOptions.map((asset) => (
-              <option key={asset.id} value={asset.id}>
-                {asset.hostname}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="filter-status" className={labelStyles}>
-            판정
-          </label>
-          <select
-            id="filter-status"
-            name="status"
-            defaultValue={filters.status ?? ""}
-            className={inputStyles}
-          >
-            <option value="">전체</option>
-            {(Object.keys(ITEM_STATUS_LABELS) as Enums["item_status"][]).map(
-              (status) => (
-                <option key={status} value={status}>
-                  {ITEM_STATUS_LABELS[status]}
-                </option>
-              ),
-            )}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="filter-category" className={labelStyles}>
-            분야
-          </label>
-          <select
-            id="filter-category"
-            name="category"
-            defaultValue={filters.category ?? ""}
-            className={inputStyles}
-          >
-            <option value="">전체</option>
-            {(
-              Object.keys(CATEGORY_LABELS) as Enums["compliance_category"][]
-            ).map((category) => (
-              <option key={category} value={category}>
-                {CATEGORY_LABELS[category]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex gap-2">
-          <button type="submit" className={buttonStyles.primary}>
-            적용
-          </button>
-          <Link href={`${base}?tab=items`} className={buttonStyles.secondary}>
-            초기화
-          </Link>
-        </div>
-      </form>
+      <ItemFilterForm
+        resetHref={`${base}?tab=items`}
+        filters={filters}
+        assetOptions={assetOptions}
+        allAssetsLabel="정상 분석 자산 전체"
+        hidden={{ tab: "items" }}
+      />
 
       <p role="status" className="text-body text-muted-foreground">
         {total.toLocaleString("ko-KR")}건 중 {total === 0 ? 0 : from + 1}–
-        {Math.min(from + PAGE_SIZE, total)}
+        {Math.min(from + ITEM_PAGE_SIZE, total)}
       </p>
 
       {data.length === 0 ? (
@@ -456,7 +353,6 @@ async function ItemsTab({
         <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
           {data.map((item) => {
             const guide = item.compliance_guidelines;
-            const { reason, evidence } = splitSnippet(item.stdout_snippet);
             return (
               <li key={item.id}>
                 <details className="group">
@@ -480,31 +376,13 @@ async function ItemsTab({
                     </span>
                     <ItemStatusBadge status={item.final_status} />
                   </summary>
-                  <div className="flex flex-col gap-3 border-t border-border bg-card px-3 py-3 text-body">
-                    {reason && (
-                      <p>
-                        <span className="font-medium">판정 근거</span> {reason}
-                      </p>
-                    )}
-                    <dl className="grid gap-1 sm:grid-cols-[6rem_1fr]">
-                      <dt className="text-muted-foreground">양호 기준</dt>
-                      <dd>{guide.good_condition}</dd>
-                      <dt className="text-muted-foreground">취약 기준</dt>
-                      <dd>{guide.vulnerable_condition}</dd>
-                      <dt className="text-muted-foreground">조치 방법</dt>
-                      <dd>{guide.remediation_guide}</dd>
-                    </dl>
-                    {evidence && (
-                      <div className="flex flex-col gap-1">
-                        <span className="text-caption text-muted-foreground">
-                          스크립트 출력 원문 ({item.raw_log_start_line}–
-                          {item.raw_log_end_line}번째 줄)
-                        </span>
-                        <pre className="max-h-64 overflow-auto rounded-md bg-background p-3 font-mono text-caption whitespace-pre">
-                          {evidence}
-                        </pre>
-                      </div>
-                    )}
+                  <div className="border-t border-border bg-card px-3 py-3">
+                    <ItemEvidence
+                      snippet={item.stdout_snippet}
+                      startLine={item.raw_log_start_line}
+                      endLine={item.raw_log_end_line}
+                      guide={guide}
+                    />
                   </div>
                 </details>
               </li>

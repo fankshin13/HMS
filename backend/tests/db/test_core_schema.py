@@ -85,7 +85,11 @@ def sample(db: psycopg.Connection) -> Sample:
 
 
 def _override(conn: psycopg.Connection, result: uuid.UUID, status: str, reason: str | None) -> None:
-    conn.execute("select public.apply_item_override(%s, %s, %s)", (result, status, reason))
+    conn.execute(
+        "select public.apply_item_override("
+        "(select assessment_run_id from inspection_item_results where id = %s), %s, %s, %s)",
+        (result, result, status, reason),
+    )
 
 
 # --- 스키마 · 시드 -----------------------------------------------------------------------

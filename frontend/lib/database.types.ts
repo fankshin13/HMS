@@ -583,8 +583,9 @@ export type Database = {
           p_item_result_id: string;
           p_new_status: Database["public"]["Enums"]["item_status"];
           p_reason: string;
+          p_run_id: string;
         };
-        Returns: undefined;
+        Returns: Json;
       };
       create_invitation: {
         Args: {
@@ -611,6 +612,18 @@ export type Database = {
           total_assets: number;
           total_checks: number;
           vulnerable_count: number;
+        }[];
+      };
+      get_assessment_risk_summary: {
+        Args: { p_run_id: string };
+        Returns: {
+          caution_count: number;
+          critical_count: number;
+          critical_threshold: number;
+          max_risk_score: number;
+          vulnerable_count: number;
+          warning_count: number;
+          warning_threshold: number;
         }[];
       };
       inspect_invitation: {

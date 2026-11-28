@@ -116,7 +116,7 @@ def test_run_judges_healthy_logs_and_quarantines_broken_ones(conn: psycopg.Conne
     )
     summary = run_assessment_parsing(conn, r.run, r.tenant, MemorySource(r.files))
 
-    assert summary.status == "scoring" == run_status(conn, r.run)
+    assert summary.status == "completed" == run_status(conn, r.run)
     assert summary.quarantined_logs == 2
     per_host: dict[str, int] = dict(
         conn.execute(
@@ -227,6 +227,20 @@ def test_fifty_hosts_are_judged_well_within_180_seconds(conn: psycopg.Connection
     started = time.perf_counter()
     summary = run_assessment_parsing(conn, r.run, r.tenant, MemorySource(r.files))
     elapsed = time.perf_counter() - started
-    assert (summary.status, summary.results, summary.quarantined_logs) == ("scoring", 650, 0)
+    assert (summary.status, summary.results, summary.quarantined_logs) == ("completed", 650, 0)
     assert elapsed < 180, elapsed
     print(f"50 hosts judged in {elapsed:.2f}s")
+
+
+def test_worker_scores_vulnerable_items(conn: psycopg.Connection) -> None:
+    r = make_run(conn, [("ubuntu-01", "linux", UBUNTU)])
+    run_assessment_parsing(conn, r.run, r.tenant, MemorySource(r.files))
+    scores: dict[str, str] = dict(
+        conn.execute(
+            "select item_code, calculated_risk_score::text from inspection_item_results "
+            "where assessment_run_id = %s and item_code in ('U-18', 'U-16')",
+            (r.run,),
+        ).fetchall()
+    )
+    # 기본 자산 중요도 2·2·2 = 6, U-18(상) 취약 → 18, U-16 양호 → 0
+    assert scores == {"U-18": "18.00", "U-16": "0.00"}

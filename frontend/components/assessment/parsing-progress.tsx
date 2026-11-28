@@ -88,7 +88,9 @@ export function ParsingProgress({
       >
         {progress.status === "queued"
           ? "분석 대기열에서 순서를 기다리고 있습니다."
-          : `자산 ${progress.total_assets}대 중 ${progress.processed_assets}대 판정 완료 (${progress.progress_percentage}%)`}
+          : progress.status === "scoring"
+            ? "판정을 마치고 자산 중요도에 따라 위험 점수를 계산하고 있습니다."
+            : `자산 ${progress.total_assets}대 중 ${progress.processed_assets}대 판정 완료 (${progress.progress_percentage}%)`}
       </p>
       {failed && (
         <div className="flex flex-col items-start gap-2">

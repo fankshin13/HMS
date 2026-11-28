@@ -13,9 +13,16 @@ export interface MaskingResult {
 export const PRIVATE_IP_REGEX =
   /\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})\b/g;
 
-// "ACCOUNT=이름", "user: 이름", "계정=이름" 형태의 계정 식별자
+// "ACCOUNT=이름", "user: 이름", "계정=이름", 파일 소유자 "OWNER=이름"·"GROUP=이름" 형태의 계정 식별자
 export const USERNAME_MASK_REGEX =
-  /\b(user|account|사용자|계정)(\s*[:=]\s*)([A-Za-z0-9_.$-]+)/gi;
+  /\b(user|account|owner|group|사용자|계정)(\s*[:=]\s*)([A-Za-z0-9_.$-]+)/gi;
+
+// 홈 디렉터리 경로의 계정 이름 (/home/이름)
+export const HOME_PATH_REGEX = /(\/home\/)([A-Za-z0-9_.-]+)/g;
+
+// Windows 관리자 그룹 구성원 "ADMIN_MEMBER=컴퓨터\이름" 의 이름 부분
+export const ADMIN_MEMBER_REGEX =
+  /\b(ADMIN_MEMBER=(?:[^\s\\]+\\)?)([A-Za-z0-9_.$-]+)/g;
 
 // 판정에 필요하고 조직을 식별하지 않는 OS 기본 계정은 그대로 둔다.
 const SYSTEM_ACCOUNTS = new Set(
@@ -43,6 +50,26 @@ const SYSTEM_ACCOUNTS = new Set(
     "defaultaccount",
     "wdagutilityaccount",
     "krbtgt",
+    // 판정에 쓰이는 OS 기본 그룹
+    "root",
+    "wheel",
+    "sys",
+    "shadow",
+    "crontab",
+    "tty",
+    "utmp",
+    "staff",
+    "users",
+    "sudo",
+    "nogroup",
+    "systemd-journal",
+    "ssl-cert",
+    "postdrop",
+    "smmsp",
+    "named",
+    "bind",
+    "snmp",
+    "unknown",
   ].map((name) => name.toLowerCase()),
 );
 
@@ -76,6 +103,18 @@ export class MaskingSession {
           return `${label}${sep}${this.alias(this.users, name, "MASKED_USER")}`;
         },
       );
+      // 같은 이름은 어디에 나오든 같은 가명이 되어야 소유자 비교 같은 판정이 유지된다
+      processedText = processedText
+        .replace(HOME_PATH_REGEX, (match, prefix: string, name: string) => {
+          if (SYSTEM_ACCOUNTS.has(name.toLowerCase())) return match;
+          maskedUserCount += 1;
+          return `${prefix}${this.alias(this.users, name, "MASKED_USER")}`;
+        })
+        .replace(ADMIN_MEMBER_REGEX, (match, prefix: string, name: string) => {
+          if (SYSTEM_ACCOUNTS.has(name.toLowerCase())) return match;
+          maskedUserCount += 1;
+          return `${prefix}${this.alias(this.users, name, "MASKED_USER")}`;
+        });
     }
     return { processedText, maskedIpCount, maskedUserCount };
   }

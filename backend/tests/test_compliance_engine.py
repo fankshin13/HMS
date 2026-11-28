@@ -26,7 +26,8 @@ def test_parser_reads_header_info_and_sections() -> None:
     assert (log.os_type, log.hostname, log.has_end) == ("linux", "web-01", True)
     assert log.info["DISTRO"] == ["Rocky Linux 9.4 (Blue Onyx)"]
     assert set(log.sections) == {r.section for r in RULES["linux"]}
-    assert len(log.sections) == 13
+    assert len(log.sections) == 41
+    assert log.script_version == (1, 2, 0)
     assert log.error_lines == []
     u01 = log.sections["U-01"]
     assert u01.command_output("permitrootlogin") == ["permitrootlogin no"]
@@ -65,13 +66,41 @@ UBUNTU_EXPECTED = {
     "U-02": "vulnerable",  # 비밀번호 관리정책 미설정
     "U-03": "vulnerable",  # 잠금 임계값 없음
     "U-04": "good",
+    "U-05": "good",
+    "U-06": "vulnerable",  # su 4755, pam_wheel 없음
     "U-14": "good",
     "U-15": "vulnerable",  # 소유자 없는 파일 존재
     "U-16": "good",
+    "U-17": "good",
     "U-18": "vulnerable",  # /etc/shadow 640
+    "U-19": "good",
+    "U-20": "na",  # inetd·xinetd 없음
+    "U-21": "vulnerable",  # rsyslog 미설치(설정 파일 없음)
+    "U-22": "good",
+    "U-23": "vulnerable",  # newgrp SUID
+    "U-24": "good",
+    "U-25": "vulnerable",  # world writable 파일
+    "U-26": "good",
+    "U-27": "good",
+    "U-28": "vulnerable",  # 방화벽 없음
     "U-34": "good",
     "U-35": "na",  # FTP·Samba 미사용
     "U-36": "good",
+    "U-37": "vulnerable",  # /etc/cron.d 파일 644
+    "U-38": "good",
+    "U-39": "good",
+    "U-40": "na",
+    "U-41": "good",
+    "U-42": "good",
+    "U-43": "good",
+    "U-44": "good",
+    "U-45": "na",  # 메일·DNS·SNMP 미사용
+    "U-46": "na",
+    "U-47": "na",
+    "U-49": "na",
+    "U-50": "na",
+    "U-59": "na",
+    "U-61": "na",
     "U-64": "vulnerable",  # 보안 업데이트 33건 대기
     "U-66": "vulnerable",  # rsyslog 미실행
 }
@@ -88,8 +117,24 @@ def test_real_ubuntu_output_is_judged_item_by_item() -> None:
 
 def test_hardened_linux_is_all_good() -> None:
     result = statuses(read("linux_hardened.txt"))
-    assert len(result) == 13
-    assert set(result.values()) == {"good"}
+    assert len(result) == 41
+    not_applicable = {code for code, status in result.items() if status == "na"}
+    assert not_applicable == {"U-20", "U-40"}  # inetd·NFS 미사용
+    assert {s for code, s in result.items() if code not in not_applicable} == {"good"}
+
+
+def test_older_script_output_is_judged_without_errors() -> None:
+    """v1.1 스크립트 결과에는 v1.2 항목 구간이 없다. 오류로 격리하지 않고 수집된 항목만 판정한다."""
+    mapped = map_log(parse_log(read("linux_hardened_v1_1.txt")))
+    assert mapped.errors == []
+    assert len(mapped.results) == 13
+
+
+def test_missing_section_in_current_script_is_an_error() -> None:
+    text = read("linux_hardened.txt")
+    start, end = text.index("==== U-05 BEGIN ===="), text.index("==== U-05 END ====\n")
+    mapped = map_log(parse_log(text[:start] + text[end + len("==== U-05 END ====\n") :]))
+    assert any("U-05" in e.reason for e in mapped.errors)
 
 
 # --- 개별 규칙의 경계 -----------------------------------------------------------------------
@@ -161,12 +206,33 @@ def test_services_detected_as_vulnerable() -> None:
 
 
 def test_windows_default_output() -> None:
-    assert statuses(read("windows_default.txt")) == {
-        "W-01": "vulnerable",  # Administrator 이름 그대로
-        "W-02": "good",  # Guest 비활성
-        "W-04": "vulnerable",  # 잠금 임계값 없음
-        "W-05": "good",  # 해독 가능한 암호화 사용 안 함
+    result = statuses(read("windows_default.txt"))
+    assert len(result) == 32
+    assert {code for code, status in result.items() if status == "vulnerable"} == {
+        "W-01",  # Administrator 이름 그대로
+        "W-04",  # 잠금 임계값 없음
+        "W-06",  # 관리자 2명
+        "W-09",  # 최소 사용 기간·암호 기억 미설정
+        "W-15",  # 개인 키 보호 미설정
+        "W-17",  # 기본 공유
+        "W-18",  # Spooler·TrkWks 구동
+        "W-20",  # NetBIOS 바인딩
+        "W-44",  # 원격 레지스트리 자동 시작
+        "W-47",  # 화면 보호기 암호 없음·15분
+        "W-51",  # 공유 익명 열거 허용
     }
+    assert {code for code, status in result.items() if status == "na"} == {"W-22", "W-24"}
+
+
+def test_hardened_windows_is_all_good() -> None:
+    result = statuses(read("windows_hardened.txt"))
+    assert {code for code, status in result.items() if status != "good"} == {"W-22", "W-24"}
+
+
+def test_older_windows_script_judges_only_collected_items() -> None:
+    mapped = map_log(parse_log(read("windows_default_v1_0.txt")))
+    assert mapped.errors == []
+    assert len(mapped.results) == 13
 
 
 @pytest.mark.parametrize(

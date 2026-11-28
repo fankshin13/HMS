@@ -1,4 +1,4 @@
-[START] OS=Windows HOSTNAME=WIN-SRV-01 DATE=2026-11-28T09:00:00+09:00 SCRIPT=kisa_check_windows VERSION=1.0.0
+[START] OS=Windows HOSTNAME=WIN-SRV-01 DATE=2026-11-28T09:00:00+09:00 SCRIPT=kisa_check_windows VERSION=1.1.0
 [INFO] DISTRO=Microsoft Windows Server 2022 Standard 10.0.20348
 [INFO] IP=MASKED_IP_001/24
 
@@ -19,9 +19,109 @@ Lockout threshold:                                    Never
 PasswordComplexity = 1
 ClearTextPassword = 0
 MinimumPasswordLength = 8
+MaximumPasswordAge = 42
+MinimumPasswordAge = 0
+PasswordHistorySize = 0
 LockoutBadCount = 0
 NewAdministratorName = "Administrator"
 EnableGuestAccount = 0
+SeRemoteShutdownPrivilege = *S-1-5-32-544
+MACHINE\System\CurrentControlSet\Control\Lsa\RestrictAnonymous=4,0
+MACHINE\System\CurrentControlSet\Control\Lsa\RestrictAnonymousSAM=4,1
+MACHINE\System\CurrentControlSet\Control\Lsa\CrashOnAuditFail=4,0
+MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\ShutdownWithoutLogon=4,0
 ==== WIN-SECURITY_POLICY END ====
+
+==== WIN-SERVICES BEGIN ====
+SERVICE=Spooler STATUS=Running START=Automatic
+SERVICE=RemoteRegistry STATUS=Stopped START=Automatic
+SERVICE=SharedAccess STATUS=Stopped START=Manual
+SERVICE=TrkWks STATUS=Running START=Automatic
+SERVICE=WerSvc STATUS=Stopped START=Manual
+==== WIN-SERVICES END ====
+
+==== WIN-SHARES BEGIN ====
+$ net share
+
+Share name   Resource                        Remark
+
+-------------------------------------------------------------------------------
+C$           C:\                             Default share
+IPC$                                         Remote IPC
+ADMIN$       C:\Windows                      Remote Admin
+The command completed successfully.
+
+AutoShareServer=
+AutoShareWks=
+==== WIN-SHARES END ====
+
+==== WIN-HOTFIX BEGIN ====
+HOTFIX=KB5044281 INSTALLED=10/14/2026 00:00:00 DESC=Security Update
+==== WIN-HOTFIX END ====
+
+==== WIN-REMOTE_ACCESS BEGIN ====
+fDenyTSConnections=0
+UserAuthentication=1
+MinEncryptionLevel=2
+PortNumber=3389
+AutoAdminLogon=0
+==== WIN-REMOTE_ACCESS END ====
+
+==== WIN-ANTIVIRUS BEGIN ====
+AMServiceEnabled=True
+RealTimeProtectionEnabled=True
+AntivirusSignatureLastUpdated=11/28/2026 03:12:00
+==== WIN-ANTIVIRUS END ====
+
+==== WIN-ACCOUNTS BEGIN ====
+ACCOUNT=Administrator ENABLED=True RID=500 LAST_LOGON_DAYS=1
+ACCOUNT=DefaultAccount ENABLED=False RID=503 LAST_LOGON_DAYS=never
+ACCOUNT=Guest ENABLED=False RID=501 LAST_LOGON_DAYS=never
+ACCOUNT=MASKED_USER_001 ENABLED=True RID=1001 LAST_LOGON_DAYS=1
+ACCOUNT=WDAGUtilityAccount ENABLED=False RID=504 LAST_LOGON_DAYS=never
+$ Get-LocalGroupMember -SID S-1-5-32-544
+ADMIN_MEMBER=WIN-SRV-01\Administrator CLASS=User SOURCE=Local
+ADMIN_MEMBER=WIN-SRV-01\MASKED_USER_001 CLASS=User SOURCE=Local
+==== WIN-ACCOUNTS END ====
+
+==== WIN-REGISTRY BEGIN ====
+ForceKeyProtection=NOT_SET
+ScreenSaveActive=1
+ScreenSaverIsSecure=0
+ScreenSaveTimeOut=900
+PolicyScreenSaveActive=NOT_SET
+PolicyScreenSaverIsSecure=NOT_SET
+PolicyScreenSaveTimeOut=NOT_SET
+CurrentBuild=20348
+UBR=2849
+$ NetBIOS over TCP/IP (0 = DHCP default, 1 = enabled, 2 = disabled)
+NETBIOS_ADAPTER=4 OPTION=0
+==== WIN-REGISTRY END ====
+
+==== WIN-SHARE_ACL BEGIN ====
+$ Get-SmbShareAccess (non-default shares)
+$ Get-Acl SAM
+SAM_ACE=BUILTIN\Administrators RIGHTS=FullControl TYPE=Allow
+SAM_ACE=NT_AUTHORITY\SYSTEM RIGHTS=FullControl TYPE=Allow
+==== WIN-SHARE_ACL END ====
+
+==== WIN-IIS_FTP BEGIN ====
+$ IIS FTP sites
+IIS_MODULE=unavailable
+$ MSADC virtual directory
+MSADC_VDIR=unknown
+==== WIN-IIS_FTP END ====
+
+==== WIN-DNS BEGIN ====
+$ Get-DnsServerZone (0 = any server, 1 = name servers, 2 = listed servers, 3 = no transfer)
+DNS_ZONES=unavailable
+==== WIN-DNS END ====
+
+==== WIN-PATCH_AV BEGIN ====
+LAST_HOTFIX=KB5044281 DAYS_AGO=45
+DefenderAntivirusEnabled=True
+DefenderSignatureAge=0
+$ antivirus services
+==== WIN-PATCH_AV END ====
 
 [END]

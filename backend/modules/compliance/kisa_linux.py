@@ -1,4 +1,6 @@
-"""KISA 2026 상세가이드 Unix 서버 항목 판정 규칙 (표준 스크립트 kisa_check_linux.sh v1.1 출력 기준).
+"""KISA 2026 상세가이드 Unix 서버 항목 판정 규칙 (표준 스크립트 kisa_check_linux.sh 출력 기준).
+
+v1.1 항목은 이 파일에, v1.2 에서 추가한 '상' 항목은 kisa_linux_files·kisa_linux_services 에 있다.
 
 근거가 부족해 자동으로 확정할 수 없으면 보수적으로 '취약'으로 판정하고 사유를 남긴다.
 (수동 판정 변경으로 해소한다.)
@@ -7,6 +9,8 @@
 import re
 
 from modules.compliance.judgement import Judgement, Rule, good, int_or_none, na, vulnerable
+from modules.compliance.kisa_linux_files import FILE_RULES
+from modules.compliance.kisa_linux_services import SERVICE_RULES
 from modules.parser.log_parser import ParsedLog, Section
 
 _MODE = re.compile(r"OWNER=(\S+) MODE=([0-7]{1,4})\b")
@@ -217,7 +221,7 @@ def u66(section: Section, _: ParsedLog) -> Judgement:
     )
 
 
-LINUX_RULES: list[Rule] = [
+_BASE_RULES: list[Rule] = [
     Rule("U-01", "U-01", u01),
     Rule("U-02", "U-02", u02),
     Rule("U-03", "U-03", u03),
@@ -232,3 +236,10 @@ LINUX_RULES: list[Rule] = [
     Rule("U-64", "U-64", u64),
     Rule("U-66", "U-66", u66),
 ]
+
+
+def _code(rule: Rule) -> int:
+    return int(rule.item_code.split("-")[1])
+
+
+LINUX_RULES: list[Rule] = sorted(_BASE_RULES + FILE_RULES + SERVICE_RULES, key=_code)

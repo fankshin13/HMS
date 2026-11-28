@@ -57,5 +57,11 @@ Supabase 프로젝트 설정: Authentication → URL Configuration 의 Redirect 
 - 업로드(`/assessments/new`): 브라우저 작업 스레드에서 압축 해제 → 사설 IP(RFC 1918)·개인 계정명을 가명(`MASKED_IP_001`, `MASKED_USER_001`)으로 치환 → 머리말 검사 후 전송합니다. 원본↔가명 대응표는 브라우저 밖으로 나가지 않습니다. 서버(`/api/assessments/upload`)는 다시 검사한 뒤 로그를 비공개 버킷 `diagnostic-raw/<tenant>/<run>/` 에 저장하고 `register_assessment_upload` 로 진단 차수·자산·로그를 등록합니다. 형식이 깨진 파일은 `partial_error` 로 격리되고 나머지는 정상 처리됩니다.
 - 제한: 업로드 50MB, 압축 해제 총량 200MB, 로그 파일 500개. 같은 파일을 10분 안에 다시 올리면 확인을 받습니다.
 
+## 자동 판정 엔진 (backend/modules)
+- `modules/parser/log_parser.py`: 표준 스크립트 결과를 구간 단위로 나누는 순수 파서. 어떤 입력에도 예외를 던지지 않고, 해석할 수 없는 줄은 줄 번호와 함께 오류 목록에 담습니다.
+- `modules/compliance/`: KISA 항목별 결정론적 판정 규칙(`kisa_linux.py` U-01~08·19~21·42·43·72, `kisa_windows.py` W-01·02·04·05). 구간 안에 `RESULT=OK|VULNERABLE|N/A` 가 있으면 우선합니다. 근거가 부족하면 보수적으로 '취약'으로 판정하고 사유를 남깁니다.
+- `modules/worker/`: `queued` 진단 차수를 선점해 `parsing → scoring` 으로 처리합니다(멱등, 로그 단위 커밋, 저장소 장애 시 `failed`). 형식이 깨진 로그는 `partial_error` 로 격리하고, 판정 가능한 항목은 저장합니다.
+- 실행: `cd backend && uv run python -m modules.worker` (대기열이 빌 때까지만 처리하려면 `--once`). 필요한 환경 변수는 `backend/.env.example` 참고.
+
 ## 환경 변수
 `.env.example`에 이름만 정리돼 있습니다. 값은 `.env`(커밋 금지) 또는 서버 측 시크릿 저장소에 둡니다.

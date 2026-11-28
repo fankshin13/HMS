@@ -1,0 +1,117 @@
+[START] OS=Linux HOSTNAME=web-01 DATE=2026-11-28T09:00:00+0900 SCRIPT=kisa_check_linux VERSION=1.0.0
+[INFO] DISTRO=Rocky Linux 9.4 (Blue Onyx)
+[INFO] KERNEL=Linux 5.14.0-427.el9.x86_64 x86_64
+[INFO] IP=MASKED_IP_001/24
+
+==== U-01 BEGIN ====
+$ sshd -T 2>/dev/null | grep -Ei '^permitrootlogin'
+permitrootlogin no
+$ grep -v "^#" /etc/ssh/sshd_config
+PermitRootLogin no
+$ systemctl is-active telnet.socket 2>/dev/null; systemctl is-enabled telnet.socket 2>/dev/null
+inactive
+disabled
+$ grep -E '^pts' /etc/securetty 2>/dev/null
+==== U-01 END ====
+
+==== U-02 BEGIN ====
+$ grep -v "^#" /etc/security/pwquality.conf
+minlen = 8
+dcredit = -1
+ucredit = -1
+lcredit = -1
+ocredit = -1
+$ grep -Eh 'pam_pwquality|pam_cracklib' /etc/pam.d/system-auth /etc/pam.d/password-auth /etc/pam.d/common-password 2>/dev/null
+password    requisite     pam_pwquality.so local_users_only
+$ grep -E '^PASS_(MIN_LEN|MAX_DAYS|MIN_DAYS)' /etc/login.defs
+PASS_MAX_DAYS	90
+PASS_MIN_DAYS	1
+==== U-02 END ====
+
+==== U-03 BEGIN ====
+$ grep -v "^#" /etc/security/faillock.conf
+deny = 5
+unlock_time = 600
+$ grep -Eh 'pam_faillock|pam_tally2' /etc/pam.d/system-auth /etc/pam.d/password-auth /etc/pam.d/common-auth 2>/dev/null
+auth        required      pam_faillock.so preauth silent
+==== U-03 END ====
+
+==== U-04 BEGIN ====
+$ awk -F: '$2 != "x" {print "ACCOUNT=" $1}' /etc/passwd
+$ awk -F: '$2 != "x"' /etc/passwd | wc -l | sed 's/^/NON_SHADOW_COUNT=/'
+NON_SHADOW_COUNT=0
+$ ls -l /etc/shadow
+----------. 1 root root 1024 Nov 20 10:56 /etc/shadow
+==== U-04 END ====
+
+==== U-05 BEGIN ====
+$ bash -lc 'echo PATH=$PATH'
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/root/bin
+$ ls -ld /root
+dr-xr-x---. 3 root root 4096 Nov 27 23:53 /root
+==== U-05 END ====
+
+==== U-06 BEGIN ====
+$ find / -xdev \( -nouser -o -nogroup \) -print 2>/dev/null | head -n 50
+==== U-06 END ====
+
+==== U-07 BEGIN ====
+$ stat -c 'OWNER=%U MODE=%a FILE=%n' /etc/passwd
+OWNER=root MODE=644 FILE=/etc/passwd
+==== U-07 END ====
+
+==== U-08 BEGIN ====
+$ stat -c 'OWNER=%U MODE=%a FILE=%n' /etc/shadow
+OWNER=root MODE=0 FILE=/etc/shadow
+==== U-08 END ====
+
+==== U-19 BEGIN ====
+$ systemctl list-unit-files 2>/dev/null | grep -Ei 'finger'
+$ grep -Els 'finger' /etc/inetd.conf /etc/xinetd.d/* 2>/dev/null
+$ ss -ltn 2>/dev/null | grep -E ':79\b'
+==== U-19 END ====
+
+==== U-20 BEGIN ====
+$ grep -E '^(ftp|anonymous):' /etc/passwd | cut -d: -f1 | sed 's/^/ACCOUNT=/'
+ACCOUNT=ftp
+$ grep -v "^#" /etc/vsftpd/vsftpd.conf
+anonymous_enable=NO
+local_enable=YES
+NOT_FOUND=/etc/vsftpd.conf
+$ grep -Ei '<Anonymous' /etc/proftpd/proftpd.conf /etc/proftpd.conf 2>/dev/null
+$ systemctl is-active vsftpd proftpd 2>/dev/null
+inactive
+inactive
+==== U-20 END ====
+
+==== U-21 BEGIN ====
+$ systemctl list-unit-files 2>/dev/null | grep -Ei 'rsh|rlogin|rexec'
+$ grep -Hi 'disable' /etc/xinetd.d/rsh /etc/xinetd.d/rlogin /etc/xinetd.d/rexec 2>/dev/null
+$ ss -ltn 2>/dev/null | grep -E ':(512|513|514)\b'
+==== U-21 END ====
+
+==== U-42 BEGIN ====
+$ uname -r
+5.14.0-427.el9.x86_64
+$ rpm -qa --last 2>/dev/null | head -n 5
+kernel-5.14.0-427.el9.x86_64   Mon 18 Nov 2026 10:00:00 AM KST
+RESULT=OK
+==== U-42 END ====
+
+==== U-43 BEGIN ====
+MANUAL_REVIEW=로그 검토·보고 절차는 담당자 인터뷰로 확인
+$ ls -l /var/log/secure /var/log/auth.log /var/log/messages /var/log/syslog 2>/dev/null
+-rw-------. 1 root root 12345 Nov 28 09:00 /var/log/secure
+==== U-43 END ====
+
+==== U-72 BEGIN ====
+$ systemctl is-active rsyslog syslog-ng 2>/dev/null
+active
+inactive
+$ grep -v "^#" /etc/rsyslog.conf
+*.info;mail.none;authpriv.none;cron.none                /var/log/messages
+authpriv.*                                              /var/log/secure
+*.emerg                                                 :omusrmsg:*
+==== U-72 END ====
+
+[END]

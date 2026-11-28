@@ -600,6 +600,19 @@ export type Database = {
           invitation_id: string;
         }[];
       };
+      get_assessment_progress: {
+        Args: { p_run_id: string };
+        Returns: {
+          good_count: number;
+          na_count: number;
+          processed_assets: number;
+          quarantined_logs: number;
+          status: Database["public"]["Enums"]["assessment_status"];
+          total_assets: number;
+          total_checks: number;
+          vulnerable_count: number;
+        }[];
+      };
       inspect_invitation: {
         Args: { p_token_hash: string };
         Returns: {

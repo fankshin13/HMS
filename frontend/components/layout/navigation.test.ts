@@ -45,7 +45,7 @@ describe("getBreadcrumbs", () => {
   it("labels assessment detail paths and leaves the last crumb unlinked", () => {
     expect(getBreadcrumbs("/assessments/test-101/items")).toEqual([
       { label: "진단 차수", href: "/assessments" },
-      { label: "진단 test-101", href: "/assessments/test-101" },
+      { label: "진단 결과", href: "/assessments/test-101" },
       { label: "점검 항목", href: undefined },
     ]);
   });

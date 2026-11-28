@@ -2,7 +2,7 @@
 # =============================================================================
 # 시스템 취약점 진단 - Linux 표준 점검 스크립트
 #   대상: CentOS / RHEL / Rocky / Ubuntu / Debian
-#   기준: KISA 주요정보통신기반시설 기술적 취약점 분석·평가 (Unix 서버)
+#   기준: KISA 2026 주요정보통신기반시설 기술적 취약점 분석·평가 방법 상세가이드 (Unix 서버)
 #
 # 이 스크립트는 읽기 전용입니다. 설정을 바꾸지 않고 판정에 필요한 근거만 모아
 # 현재 디렉터리에 <호스트명>_linux_<일시>.txt 파일로 저장합니다.
@@ -13,7 +13,7 @@
 set -u
 export LC_ALL=C
 
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.1.0"
 HOST="$(hostname 2>/dev/null || uname -n)"
 STAMP="$(date +%Y%m%d%H%M%S)"
 OUT="${HOST}_linux_${STAMP}.txt"
@@ -62,10 +62,12 @@ collect() {
   run "grep -E '^pts' /etc/securetty 2>/dev/null"
   end "U-01"
 
-  begin "U-02" # 패스워드 복잡성 설정
+  begin "U-02" # 비밀번호 관리정책 설정
   show_conf /etc/security/pwquality.conf
   run "grep -Eh 'pam_pwquality|pam_cracklib' /etc/pam.d/system-auth /etc/pam.d/password-auth /etc/pam.d/common-password 2>/dev/null"
   run "grep -E '^PASS_(MIN_LEN|MAX_DAYS|MIN_DAYS)' /etc/login.defs"
+  show_conf /etc/security/pwhistory.conf
+  run "grep -Eh 'pam_pwhistory|remember=' /etc/pam.d/system-auth /etc/pam.d/password-auth /etc/pam.d/common-password 2>/dev/null"
   end "U-02"
 
   begin "U-03" # 계정 잠금 임계값 설정
@@ -80,45 +82,48 @@ collect() {
   run "ls -l /etc/shadow"
   end "U-04"
 
-  begin "U-05" # root 홈, 패스 디렉터리 권한 및 패스 설정
+  begin "U-14" # root 홈, 패스 디렉터리 권한 및 패스 설정
   # sudo 의 secure_path 가 아니라 root 로그인 셸의 PATH 를 확인한다
   run "bash -lc 'echo PATH=\$PATH'"
   run "ls -ld /root"
-  end "U-05"
+  end "U-14"
 
-  begin "U-06" # 파일 및 디렉터리 소유자 설정
+  begin "U-15" # 파일 및 디렉터리 소유자 설정
   run "find / -xdev \\( -nouser -o -nogroup \\) -print 2>/dev/null | head -n 50"
-  end "U-06"
+  end "U-15"
 
-  begin "U-07" # /etc/passwd 파일 소유자 및 권한 설정
+  begin "U-16" # /etc/passwd 파일 소유자 및 권한 설정
   run "stat -c 'OWNER=%U MODE=%a FILE=%n' /etc/passwd"
-  end "U-07"
+  end "U-16"
 
-  begin "U-08" # /etc/shadow 파일 소유자 및 권한 설정
+  begin "U-18" # /etc/shadow 파일 소유자 및 권한 설정
   run "stat -c 'OWNER=%U MODE=%a FILE=%n' /etc/shadow"
-  end "U-08"
+  end "U-18"
 
-  begin "U-19" # Finger 서비스 비활성화
+  begin "U-34" # Finger 서비스 비활성화
   run "systemctl list-unit-files 2>/dev/null | grep -Ei 'finger'"
   run "grep -Els 'finger' /etc/inetd.conf /etc/xinetd.d/* 2>/dev/null"
   run "ss -ltn 2>/dev/null | grep -E ':79\\b'"
-  end "U-19"
+  end "U-34"
 
-  begin "U-20" # Anonymous FTP 비활성화
+  begin "U-35" # 공유 서비스에 대한 익명 접근 제한 설정
   run "grep -E '^(ftp|anonymous):' /etc/passwd | cut -d: -f1 | sed 's/^/ACCOUNT=/'"
   show_conf /etc/vsftpd.conf
   show_conf /etc/vsftpd/vsftpd.conf
   run "grep -Ei '<Anonymous' /etc/proftpd/proftpd.conf /etc/proftpd.conf 2>/dev/null"
   run "systemctl is-active vsftpd proftpd 2>/dev/null"
-  end "U-20"
+  run "grep -Ei '^[[:space:]]*(guest ok|public|map to guest)[[:space:]]*=' /etc/samba/smb.conf 2>/dev/null"
+  run "systemctl is-active smb smbd nmb 2>/dev/null"
+  run "grep -Ev '^[[:space:]]*(#|$)' /etc/exports 2>/dev/null"
+  end "U-35"
 
-  begin "U-21" # r 계열 서비스 비활성화
+  begin "U-36" # r 계열 서비스 비활성화
   run "systemctl list-unit-files 2>/dev/null | grep -Ei 'rsh|rlogin|rexec'"
   run "grep -Hi 'disable' /etc/xinetd.d/rsh /etc/xinetd.d/rlogin /etc/xinetd.d/rexec 2>/dev/null"
   run "ss -ltn 2>/dev/null | grep -E ':(512|513|514)\\b'"
-  end "U-21"
+  end "U-36"
 
-  begin "U-42" # 최신 보안패치 및 벤더 권고사항 적용
+  begin "U-64" # 주기적 보안 패치 및 벤더 권고사항 적용
   run "uname -r"
   if command -v apt >/dev/null 2>&1; then
     run "grep -h '^Start-Date' /var/log/apt/history.log 2>/dev/null | tail -n 5"
@@ -127,18 +132,13 @@ collect() {
   if command -v rpm >/dev/null 2>&1; then
     run "rpm -qa --last 2>/dev/null | head -n 5"
   fi
-  end "U-42"
+  end "U-64"
 
-  begin "U-43" # 로그의 정기적 검토 및 보고
-  echo "MANUAL_REVIEW=로그 검토·보고 절차는 담당자 인터뷰로 확인"
-  run "ls -l /var/log/secure /var/log/auth.log /var/log/messages /var/log/syslog 2>/dev/null"
-  end "U-43"
-
-  begin "U-72" # 정책에 따른 시스템 로깅 설정
+  begin "U-66" # 정책에 따른 시스템 로깅 설정
   run "systemctl is-active rsyslog syslog-ng 2>/dev/null"
   show_conf /etc/rsyslog.conf
   run "grep -Ehv '^[[:space:]]*(#|$)' /etc/rsyslog.d/*.conf 2>/dev/null"
-  end "U-72"
+  end "U-66"
 
   echo "[END]"
 }

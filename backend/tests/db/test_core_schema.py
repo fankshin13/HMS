@@ -102,19 +102,30 @@ def test_core_tables_exist_with_rls_enabled(db: psycopg.Connection) -> None:
     assert all(tables.values()), "모든 public 테이블에 RLS 가 켜져 있어야 한다"
 
 
-def test_compliance_seed_covers_five_categories(db: psycopg.Connection) -> None:
-    categories = {
-        row[0] for row in db.execute("select distinct category::text from compliance_guidelines")
-    }
-    assert categories == {
-        "account_management",
-        "directory_file_management",
-        "service_management",
-        "patch_management",
-        "log_management",
+def test_compliance_seed_matches_kisa_2026_server_items(db: psycopg.Connection) -> None:
+    counts: dict[str, int] = dict(
+        db.execute(
+            "select left(item_code, 1) || ':' || category::text, count(*)::int "
+            "from compliance_guidelines group by 1"
+        ).fetchall()
+    )
+    assert counts == {
+        "U:account_management": 13,
+        "U:directory_file_management": 20,
+        "U:service_management": 30,
+        "U:patch_management": 1,
+        "U:log_management": 3,
+        "W:account_management": 14,
+        "W:service_management": 23,
+        "W:patch_management": 2,
+        "W:log_management": 4,
+        "W:security_management": 21,
     }
     assert _one(db, "select name from compliance_guidelines where item_code = 'U-01'") == (
-        "root 계정 원격접속 제한"
+        "root 계정 원격 접속 제한"
+    )
+    assert _one(db, "select name from compliance_guidelines where item_code = 'U-43'") == (
+        "NIS, NIS+ 점검"
     )
 
 

@@ -600,6 +600,19 @@ export type Database = {
           invitation_id: string;
         }[];
       };
+      get_assessment_progress: {
+        Args: { p_run_id: string };
+        Returns: {
+          good_count: number;
+          na_count: number;
+          processed_assets: number;
+          quarantined_logs: number;
+          status: Database["public"]["Enums"]["assessment_status"];
+          total_assets: number;
+          total_checks: number;
+          vulnerable_count: number;
+        }[];
+      };
       inspect_invitation: {
         Args: { p_token_hash: string };
         Returns: {
@@ -634,7 +647,8 @@ export type Database = {
         | "directory_file_management"
         | "service_management"
         | "patch_management"
-        | "log_management";
+        | "log_management"
+        | "security_management";
       compliance_risk_level: "high" | "medium" | "low";
       item_status: "good" | "vulnerable" | "na";
       os_family: "linux" | "windows";
@@ -784,6 +798,7 @@ export const Constants = {
         "service_management",
         "patch_management",
         "log_management",
+        "security_management",
       ],
       compliance_risk_level: ["high", "medium", "low"],
       item_status: ["good", "vulnerable", "na"],

@@ -1,0 +1,27 @@
+[START] OS=Windows HOSTNAME=WIN-SRV-01 DATE=2026-11-28T09:00:00+09:00 SCRIPT=kisa_check_windows VERSION=1.0.0
+[INFO] DISTRO=Microsoft Windows Server 2022 Standard 10.0.20348
+[INFO] IP=MASKED_IP_001/24
+
+==== WIN-LOCAL_USERS BEGIN ====
+ACCOUNT=Administrator ENABLED=True RID=500 PASSWORD_LAST_SET=2026-01-01 LAST_LOGON=2026-11-27
+ACCOUNT=Guest ENABLED=False RID=501 PASSWORD_LAST_SET= LAST_LOGON=
+ACCOUNT=MASKED_USER_001 ENABLED=True RID=1001 PASSWORD_LAST_SET=2026-10-01 LAST_LOGON=2026-11-27
+$ net localgroup Administrators
+Administrator
+==== WIN-LOCAL_USERS END ====
+
+==== WIN-ACCOUNT_POLICY BEGIN ====
+$ net accounts
+Lockout threshold:                                    Never
+==== WIN-ACCOUNT_POLICY END ====
+
+==== WIN-SECURITY_POLICY BEGIN ====
+PasswordComplexity = 1
+ClearTextPassword = 0
+MinimumPasswordLength = 8
+LockoutBadCount = 0
+NewAdministratorName = "Administrator"
+EnableGuestAccount = 0
+==== WIN-SECURITY_POLICY END ====
+
+[END]

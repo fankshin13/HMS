@@ -110,7 +110,7 @@ export function getBreadcrumbs(pathname: string): Breadcrumb[] {
     const isAssessmentId =
       segments[0] === "assessments" && index === 1 && segment !== "new";
     const label = isAssessmentId
-      ? `진단 ${decodeURIComponent(segment)}`
+      ? "진단 결과"
       : (SEGMENT_LABELS[segment] ?? decodeURIComponent(segment));
     const isLast = index === segments.length - 1;
     return {

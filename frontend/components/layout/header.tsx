@@ -35,7 +35,7 @@ export function Header({
               {crumb.href ? (
                 <Link
                   href={crumb.href}
-                  className="inline-flex min-h-11 min-w-0 items-center truncate text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  className="inline-flex min-h-11 min-w-11 shrink-0 items-center whitespace-nowrap text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                 >
                   {crumb.label}
                 </Link>

@@ -6,6 +6,7 @@
 import re
 
 from modules.compliance.judgement import Judgement, Rule, good, int_or_none, vulnerable
+from modules.compliance.kisa_windows_high import HIGH_RULES
 from modules.parser.log_parser import ParsedLog, Section
 
 _ACCOUNT = re.compile(r"ACCOUNT=(\S+) ENABLED=(True|False) RID=(\d+)")
@@ -84,9 +85,14 @@ def w05(section: Section, _: ParsedLog) -> Judgement:
     return vulnerable("'해독 가능한 암호화를 사용하여 암호 저장' 정책이 사용으로 되어 있습니다")
 
 
-WINDOWS_RULES: list[Rule] = [
+_BASE_RULES: list[Rule] = [
     Rule("W-01", "WIN-LOCAL_USERS", w01),
     Rule("W-02", "WIN-LOCAL_USERS", w02),
     Rule("W-04", "WIN-ACCOUNT_POLICY", w04),
     Rule("W-05", "WIN-SECURITY_POLICY", w05),
 ]
+
+
+WINDOWS_RULES: list[Rule] = sorted(
+    _BASE_RULES + HIGH_RULES, key=lambda rule: int(rule.item_code.split("-")[1])
+)

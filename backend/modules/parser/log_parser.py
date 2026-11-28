@@ -20,6 +20,7 @@ OsType = Literal["linux", "windows"]
 START = re.compile(
     r"^\[START\] OS=(Linux|Windows) HOSTNAME=([A-Za-z0-9][A-Za-z0-9._-]{0,254})(?:\s|$)"
 )
+VERSION = re.compile(r"\sVERSION=(\d+(?:\.\d+){0,3})(?:\s|$)")
 INFO = re.compile(r"^\[INFO\] ([A-Z_]+)=(.*)$")
 SECTION = re.compile(r"^==== (\S+) (BEGIN|END) ====$")
 COMMAND_PREFIX = "$ "
@@ -73,6 +74,7 @@ class ParsedLog:
     sections: dict[str, Section]
     error_lines: list[ErrorLine]
     has_end: bool
+    script_version: tuple[int, ...] | None = None
 
 
 def _error(number: int, reason: str, line: str) -> ErrorLine:
@@ -131,6 +133,9 @@ def parse_log(text: str) -> ParsedLog:
             else:
                 parsed.os_type = "windows" if start.group(1) == "Windows" else "linux"
                 parsed.hostname = start.group(2)
+                version = VERSION.search(line)
+                if version:
+                    parsed.script_version = tuple(int(p) for p in version.group(1).split("."))
         elif info := INFO.match(line):
             parsed.info.setdefault(info.group(1), []).append(info.group(2).strip())
         elif line.strip() == "[END]":

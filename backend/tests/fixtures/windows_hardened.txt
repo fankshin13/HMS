@@ -1,0 +1,125 @@
+[START] OS=Windows HOSTNAME=WIN-SRV-02 DATE=2026-11-28T09:00:00+09:00 SCRIPT=kisa_check_windows VERSION=1.1.0
+[INFO] DISTRO=Microsoft Windows Server 2022 Standard 10.0.20348
+[INFO] IP=MASKED_IP_001/24
+
+==== WIN-LOCAL_USERS BEGIN ====
+ACCOUNT=SrvOps01 ENABLED=True RID=500 PASSWORD_LAST_SET=2026-10-01 LAST_LOGON=2026-11-27
+ACCOUNT=Guest ENABLED=False RID=501 PASSWORD_LAST_SET= LAST_LOGON=
+$ net localgroup Administrators
+SrvOps01
+==== WIN-LOCAL_USERS END ====
+
+==== WIN-ACCOUNT_POLICY BEGIN ====
+$ net accounts
+Lockout threshold:                                    5
+==== WIN-ACCOUNT_POLICY END ====
+
+==== WIN-SECURITY_POLICY BEGIN ====
+PasswordComplexity = 1
+ClearTextPassword = 0
+MinimumPasswordLength = 8
+MaximumPasswordAge = 90
+MinimumPasswordAge = 1
+PasswordHistorySize = 4
+LockoutBadCount = 5
+NewAdministratorName = "SrvOps01"
+EnableGuestAccount = 0
+SeRemoteShutdownPrivilege = *S-1-5-32-544
+MACHINE\System\CurrentControlSet\Control\Lsa\RestrictAnonymous=4,1
+MACHINE\System\CurrentControlSet\Control\Lsa\RestrictAnonymousSAM=4,1
+MACHINE\System\CurrentControlSet\Control\Lsa\CrashOnAuditFail=4,0
+MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\ShutdownWithoutLogon=4,0
+MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\InactivityTimeoutSecs=4,600
+MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Winlogon\AllocateDASD=1,"0"
+==== WIN-SECURITY_POLICY END ====
+
+==== WIN-SERVICES BEGIN ====
+SERVICE=Spooler STATUS=Stopped START=Disabled
+SERVICE=RemoteRegistry STATUS=Stopped START=Disabled
+SERVICE=SharedAccess STATUS=Stopped START=Manual
+SERVICE=Browser STATUS=Stopped START=Disabled
+SERVICE=WerSvc STATUS=Stopped START=Manual
+==== WIN-SERVICES END ====
+
+==== WIN-SHARES BEGIN ====
+$ net share
+
+Share name   Resource                        Remark
+
+-------------------------------------------------------------------------------
+IPC$                                         Remote IPC
+The command completed successfully.
+
+AutoShareServer=0
+AutoShareWks=0
+==== WIN-SHARES END ====
+
+==== WIN-HOTFIX BEGIN ====
+HOTFIX=KB5044281 INSTALLED=10/14/2026 00:00:00 DESC=Security Update
+==== WIN-HOTFIX END ====
+
+==== WIN-REMOTE_ACCESS BEGIN ====
+fDenyTSConnections=0
+UserAuthentication=1
+MinEncryptionLevel=2
+PortNumber=3389
+AutoAdminLogon=0
+==== WIN-REMOTE_ACCESS END ====
+
+==== WIN-ANTIVIRUS BEGIN ====
+AMServiceEnabled=True
+RealTimeProtectionEnabled=True
+AntivirusSignatureLastUpdated=11/28/2026 03:12:00
+==== WIN-ANTIVIRUS END ====
+
+==== WIN-ACCOUNTS BEGIN ====
+ACCOUNT=SrvOps01 ENABLED=True RID=500 LAST_LOGON_DAYS=1
+ACCOUNT=DefaultAccount ENABLED=False RID=503 LAST_LOGON_DAYS=never
+ACCOUNT=Guest ENABLED=False RID=501 LAST_LOGON_DAYS=never
+ACCOUNT=WDAGUtilityAccount ENABLED=False RID=504 LAST_LOGON_DAYS=never
+$ Get-LocalGroupMember -SID S-1-5-32-544
+ADMIN_MEMBER=WIN-SRV-02\SrvOps01 CLASS=User SOURCE=Local
+==== WIN-ACCOUNTS END ====
+
+==== WIN-REGISTRY BEGIN ====
+ForceKeyProtection=2
+ScreenSaveActive=1
+ScreenSaverIsSecure=1
+ScreenSaveTimeOut=600
+PolicyScreenSaveActive=NOT_SET
+PolicyScreenSaverIsSecure=NOT_SET
+PolicyScreenSaveTimeOut=NOT_SET
+CurrentBuild=20348
+UBR=2849
+$ NetBIOS over TCP/IP (0 = DHCP default, 1 = enabled, 2 = disabled)
+NETBIOS_ADAPTER=4 OPTION=2
+==== WIN-REGISTRY END ====
+
+==== WIN-SHARE_ACL BEGIN ====
+$ Get-SmbShareAccess (non-default shares)
+SHARE=Deploy ACCOUNT=BUILTIN\Administrators RIGHT=Full TYPE=Allow
+$ Get-Acl SAM
+SAM_ACE=BUILTIN\Administrators RIGHTS=FullControl TYPE=Allow
+SAM_ACE=NT_AUTHORITY\SYSTEM RIGHTS=FullControl TYPE=Allow
+==== WIN-SHARE_ACL END ====
+
+==== WIN-IIS_FTP BEGIN ====
+$ IIS FTP sites
+IIS_MODULE=unavailable
+$ MSADC virtual directory
+MSADC_VDIR=unknown
+==== WIN-IIS_FTP END ====
+
+==== WIN-DNS BEGIN ====
+$ Get-DnsServerZone (0 = any server, 1 = name servers, 2 = listed servers, 3 = no transfer)
+DNS_ZONES=unavailable
+==== WIN-DNS END ====
+
+==== WIN-PATCH_AV BEGIN ====
+LAST_HOTFIX=KB5044281 DAYS_AGO=45
+DefenderAntivirusEnabled=True
+DefenderSignatureAge=0
+$ antivirus services
+==== WIN-PATCH_AV END ====
+
+[END]

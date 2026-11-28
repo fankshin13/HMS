@@ -126,8 +126,8 @@ def test_run_judges_healthy_logs_and_quarantines_broken_ones(conn: psycopg.Conne
             (r.run,),
         ).fetchall()
     )
-    assert per_host["ubuntu-01"] == 13 and per_host["web-01"] == 13 and per_host["WIN-SRV-01"] == 4
-    assert 0 < per_host["web-02"] < 13  # 손상된 자산도 판정 가능한 항목은 남긴다
+    assert per_host["ubuntu-01"] == 41 and per_host["web-01"] == 41 and per_host["WIN-SRV-01"] == 32
+    assert 0 < per_host["web-02"] < 41  # 손상된 자산도 판정 가능한 항목은 남긴다
 
     vulnerable = _one(
         conn,
@@ -203,7 +203,7 @@ def test_storage_outage_marks_run_failed(conn: psycopg.Connection) -> None:
 def test_duplicate_host_in_one_run_is_quarantined(conn: psycopg.Connection) -> None:
     r = make_run(conn, [("ubuntu-01", "linux", UBUNTU), ("ubuntu-01", "linux", UBUNTU)])
     summary = run_assessment_parsing(conn, r.run, r.tenant, MemorySource(r.files))
-    assert (summary.results, summary.quarantined_logs) == (13, 1)
+    assert (summary.results, summary.quarantined_logs) == (41, 1)
 
 
 def test_requires_autocommit_connection(database_url: str) -> None:
@@ -227,7 +227,7 @@ def test_fifty_hosts_are_judged_well_within_180_seconds(conn: psycopg.Connection
     started = time.perf_counter()
     summary = run_assessment_parsing(conn, r.run, r.tenant, MemorySource(r.files))
     elapsed = time.perf_counter() - started
-    assert (summary.status, summary.results, summary.quarantined_logs) == ("completed", 650, 0)
+    assert (summary.status, summary.results, summary.quarantined_logs) == ("completed", 2050, 0)
     assert elapsed < 180, elapsed
     print(f"50 hosts judged in {elapsed:.2f}s")
 

@@ -1,4 +1,4 @@
-[START] OS=Linux HOSTNAME=web-01 DATE=2026-11-28T09:00:00+0900 SCRIPT=kisa_check_linux VERSION=1.1.0
+[START] OS=Linux HOSTNAME=web-01 DATE=2026-11-28T09:00:00+0900 SCRIPT=kisa_check_linux VERSION=1.2.0
 [INFO] DISTRO=Rocky Linux 9.4 (Blue Onyx)
 [INFO] KERNEL=Linux 5.14.0-427.el9.x86_64 x86_64
 [INFO] IP=MASKED_IP_001/24
@@ -47,6 +47,24 @@ $ ls -l /etc/shadow
 ----------. 1 root root 1024 Nov 20 10:56 /etc/shadow
 ==== U-04 END ====
 
+==== U-05 BEGIN ====
+$ awk -F: '$3 == 0 {print "UID0=" $1}' /etc/passwd
+UID0=root
+==== U-05 END ====
+
+==== U-06 BEGIN ====
+$ grep -v "^#" /etc/pam.d/su
+auth		sufficient	pam_rootok.so
+auth		required	pam_wheel.so use_uid
+auth		substack	system-auth
+$ stat /usr/bin/su
+FILE=/usr/bin/su OWNER=root GROUP=wheel MODE=4750
+$ awk -F: '$1 == "wheel" {print "WHEEL_MEMBERS=" ($4 == "" ? 0 : split($4, m, ","))}' /etc/group
+WHEEL_MEMBERS=1
+$ awk -F: '$3 >= 1000 && $3 < 65534 && $7 !~ /(nologin|false)$/ {n++} END {print "NORMAL_USERS=" n+0}' /etc/passwd
+NORMAL_USERS=2
+==== U-06 END ====
+
 ==== U-14 BEGIN ====
 $ bash -lc 'echo PATH=$PATH'
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/root/bin
@@ -63,10 +81,86 @@ $ stat -c 'OWNER=%U MODE=%a FILE=%n' /etc/passwd
 OWNER=root MODE=644 FILE=/etc/passwd
 ==== U-16 END ====
 
+==== U-17 BEGIN ====
+$ find startup scripts (owner not root or writable by others)
+STARTUP_FILES=312
+==== U-17 END ====
+
 ==== U-18 BEGIN ====
 $ stat -c 'OWNER=%U MODE=%a FILE=%n' /etc/shadow
 OWNER=root MODE=0 FILE=/etc/shadow
 ==== U-18 END ====
+
+==== U-19 BEGIN ====
+$ stat /etc/hosts
+FILE=/etc/hosts OWNER=root GROUP=root MODE=644
+==== U-19 END ====
+
+==== U-20 BEGIN ====
+$ stat /etc/inetd.conf /etc/xinetd.conf
+MISSING=/etc/inetd.conf
+MISSING=/etc/xinetd.conf
+==== U-20 END ====
+
+==== U-21 BEGIN ====
+$ stat /etc/rsyslog.conf /etc/syslog.conf
+FILE=/etc/rsyslog.conf OWNER=root GROUP=root MODE=640
+MISSING=/etc/syslog.conf
+==== U-21 END ====
+
+==== U-22 BEGIN ====
+$ stat /etc/services
+FILE=/etc/services OWNER=root GROUP=root MODE=644
+==== U-22 END ====
+
+==== U-23 BEGIN ====
+$ find / -xdev -user root -type f -perm -4000 -o -perm -2000
+SPECIAL=/usr/bin/su
+SPECIAL=/usr/bin/sudo
+SPECIAL=/usr/bin/passwd
+SPECIAL=/usr/bin/chage
+SPECIAL=/usr/bin/mount
+SPECIAL=/usr/bin/umount
+SPECIAL=/usr/sbin/unix_chkpwd
+==== U-23 END ====
+
+==== U-24 BEGIN ====
+$ stat <home>/.profile .bashrc ... (root and UID>=1000)
+USER=root FILE=/root/.bashrc OWNER=root GROUP=root MODE=644
+USER=root FILE=/root/.bash_profile OWNER=root GROUP=root MODE=644
+USER=opsadmin FILE=/home/opsadmin/.bashrc OWNER=opsadmin GROUP=opsadmin MODE=644
+USER=deploy FILE=/home/deploy/.bash_profile OWNER=deploy GROUP=deploy MODE=600
+==== U-24 END ====
+
+==== U-25 BEGIN ====
+$ find / -xdev -type f -perm -0002
+==== U-25 END ====
+
+==== U-26 BEGIN ====
+$ find /dev -type f (mqueue, shm 제외)
+==== U-26 END ====
+
+==== U-27 BEGIN ====
+$ systemctl is-active/is-enabled rsh.socket rlogin.socket rexec.socket
+SERVICE=rsh.socket ACTIVE=inactive ENABLED=not-found
+SERVICE=rlogin.socket ACTIVE=inactive ENABLED=not-found
+SERVICE=rexec.socket ACTIVE=inactive ENABLED=not-found
+$ inetd/xinetd rsh rlogin rexec shell login exec
+$ stat /etc/hosts.equiv <home>/.rhosts
+==== U-27 END ====
+
+==== U-28 BEGIN ====
+NOT_FOUND=/etc/hosts.deny
+NOT_FOUND=/etc/hosts.allow
+$ ufw status 2>/dev/null | head -n 30
+$ systemctl is-active/is-enabled firewalld
+SERVICE=firewalld ACTIVE=active ENABLED=enabled
+$ iptables -S INPUT
+IPTABLES_INPUT_RULES=0
+IPTABLES_INPUT_POLICY=ACCEPT
+$ nft list ruleset (input hook rules)
+NFT_INPUT_RULES=14
+==== U-28 END ====
 
 ==== U-34 BEGIN ====
 $ systemctl list-unit-files 2>/dev/null | grep -Ei 'finger'
@@ -95,6 +189,163 @@ $ systemctl list-unit-files 2>/dev/null | grep -Ei 'rsh|rlogin|rexec'
 $ grep -Hi 'disable' /etc/xinetd.d/rsh /etc/xinetd.d/rlogin /etc/xinetd.d/rexec 2>/dev/null
 $ ss -ltn 2>/dev/null | grep -E ':(512|513|514)\b'
 ==== U-36 END ====
+
+==== U-37 BEGIN ====
+$ stat crontab/at commands
+KIND=cmd FILE=/usr/bin/crontab OWNER=root GROUP=root MODE=750
+$ stat cron/at files
+KIND=conf FILE=/etc/crontab OWNER=root GROUP=root MODE=600
+KIND=conf FILE=/etc/cron.deny OWNER=root GROUP=root MODE=600
+KIND=conf FILE=/etc/cron.d/0hourly OWNER=root GROUP=root MODE=600
+==== U-37 END ====
+
+==== U-38 BEGIN ====
+$ inetd/xinetd echo discard daytime chargen
+$ ss -ltnu
+LISTEN=tcp/0.0.0.0:22
+LISTEN=tcp/0.0.0.0:443
+LISTEN=tcp/127.0.0.1:25
+LISTEN=udp/MASKED_IP_001:53
+LISTEN=tcp/MASKED_IP_001:53
+==== U-38 END ====
+
+==== U-39 BEGIN ====
+$ systemctl is-active/is-enabled nfs-server nfs-kernel-server
+SERVICE=nfs-server ACTIVE=inactive ENABLED=disabled
+SERVICE=nfs-kernel-server ACTIVE=inactive ENABLED=not-found
+$ pgrep -x nfsd rpc.mountd rpc.statd rpc.lockd
+==== U-39 END ====
+
+==== U-40 BEGIN ====
+$ systemctl is-active/is-enabled nfs-server nfs-kernel-server
+SERVICE=nfs-server ACTIVE=inactive ENABLED=disabled
+SERVICE=nfs-kernel-server ACTIVE=inactive ENABLED=not-found
+$ pgrep -x nfsd
+NOT_FOUND=/etc/exports
+$ stat /etc/exports
+MISSING=/etc/exports
+==== U-40 END ====
+
+==== U-41 BEGIN ====
+$ systemctl is-active/is-enabled autofs
+SERVICE=autofs ACTIVE=inactive ENABLED=not-found
+$ pgrep -x automount automountd
+==== U-41 END ====
+
+==== U-42 BEGIN ====
+$ inetd/xinetd rpc.cmsd rpc.ttdbserverd sadmind rusersd walld sprayd rstatd rpc.nisd rexd rpc.pcnfsd rpc.statd rpc.ypupdated rpc.rquotad kcms_server cachefsd
+$ pgrep -x rpc.cmsd rpc.ttdbserverd sadmind rpc.rusersd rpc.walld rpc.sprayd rpc.rstatd rpc.nisd rpc.rexd rpc.pcnfsd rpc.statd rpc.ypupdated rpc.rquotad kcms_server cachefsd
+==== U-42 END ====
+
+==== U-43 BEGIN ====
+$ systemctl is-active/is-enabled ypserv ypbind ypxfrd yppasswdd
+SERVICE=ypserv ACTIVE=inactive ENABLED=not-found
+SERVICE=ypbind ACTIVE=inactive ENABLED=not-found
+SERVICE=ypxfrd ACTIVE=inactive ENABLED=not-found
+SERVICE=yppasswdd ACTIVE=inactive ENABLED=not-found
+$ pgrep -x ypserv ypbind ypxfrd rpc.yppasswdd rpc.ypupdated
+==== U-43 END ====
+
+==== U-44 BEGIN ====
+$ systemctl is-active/is-enabled tftp.socket tftp tftpd-hpa
+SERVICE=tftp.socket ACTIVE=inactive ENABLED=not-found
+SERVICE=tftp ACTIVE=inactive ENABLED=not-found
+SERVICE=tftpd-hpa ACTIVE=inactive ENABLED=not-found
+$ inetd/xinetd tftp talk ntalk
+$ ss -ltnu
+LISTEN=tcp/0.0.0.0:22
+LISTEN=tcp/0.0.0.0:443
+==== U-44 END ====
+
+==== U-45 BEGIN ====
+$ systemctl is-active/is-enabled sendmail postfix exim4 exim
+SERVICE=sendmail ACTIVE=inactive ENABLED=not-found
+SERVICE=postfix ACTIVE=active ENABLED=enabled
+SERVICE=exim4 ACTIVE=inactive ENABLED=not-found
+SERVICE=exim ACTIVE=inactive ENABLED=not-found
+$ pgrep -x sendmail master exim exim4
+PROCESS=master
+$ postconf -d mail_version 2>/dev/null
+mail_version = 3.5.25
+$ exim -bV 2>/dev/null | head -n 1
+$ rpm -q sendmail postfix exim 2>/dev/null | grep -v 'not installed'
+postfix-3.5.25-1.el9.x86_64
+$ dnf/yum check-update --cacheonly (pattern: sendmail[^/]*|postfix[^/]*|exim4[^/]*)
+MAIL_PENDING_UPDATES=0
+==== U-45 END ====
+
+==== U-46 BEGIN ====
+$ systemctl is-active/is-enabled sendmail postfix exim4 exim
+SERVICE=sendmail ACTIVE=inactive ENABLED=not-found
+SERVICE=postfix ACTIVE=active ENABLED=enabled
+SERVICE=exim4 ACTIVE=inactive ENABLED=not-found
+SERVICE=exim ACTIVE=inactive ENABLED=not-found
+$ pgrep -x sendmail master exim exim4
+PROCESS=master
+$ grep -E '^O PrivacyOptions' /etc/mail/sendmail.cf 2>/dev/null
+$ stat /usr/sbin/postsuper /usr/sbin/exiqgrep
+FILE=/usr/sbin/postsuper OWNER=root GROUP=root MODE=750
+MISSING=/usr/sbin/exiqgrep
+==== U-46 END ====
+
+==== U-47 BEGIN ====
+$ systemctl is-active/is-enabled sendmail postfix exim4 exim
+SERVICE=sendmail ACTIVE=inactive ENABLED=not-found
+SERVICE=postfix ACTIVE=active ENABLED=enabled
+SERVICE=exim4 ACTIVE=inactive ENABLED=not-found
+SERVICE=exim ACTIVE=inactive ENABLED=not-found
+$ pgrep -x sendmail master exim exim4
+PROCESS=master
+$ postconf smtpd_relay_restrictions smtpd_recipient_restrictions mynetworks 2>/dev/null
+smtpd_relay_restrictions = permit_mynetworks, permit_sasl_authenticated, defer_unauth_destination
+smtpd_recipient_restrictions =
+mynetworks = 127.0.0.0/8 [::1]/128
+$ grep -Ec 'Relaying denied' /etc/mail/sendmail.cf 2>/dev/null | sed 's/^/SENDMAIL_RELAY_RULES=/'
+$ grep -Eh 'promiscuous_relay' /etc/mail/sendmail.mc /etc/mail/sendmail.cf 2>/dev/null
+$ grep -Ehs 'relay_from_hosts' /etc/exim4/exim4.conf.template /etc/exim4/update-exim4.conf.conf /etc/exim/exim.conf 2>/dev/null
+==== U-47 END ====
+
+==== U-49 BEGIN ====
+$ systemctl is-active/is-enabled named bind9
+SERVICE=named ACTIVE=active ENABLED=enabled
+SERVICE=bind9 ACTIVE=inactive ENABLED=not-found
+$ pgrep -x named
+PROCESS=named
+$ named -v 2>/dev/null
+BIND 9.16.23-RH (Extended Support Version) <id:fde3b1f>
+$ dnf/yum check-update --cacheonly (pattern: bind9[^/]*|bind[^/]*)
+DNS_PENDING_UPDATES=0
+==== U-49 END ====
+
+==== U-50 BEGIN ====
+$ systemctl is-active/is-enabled named bind9
+SERVICE=named ACTIVE=active ENABLED=enabled
+SERVICE=bind9 ACTIVE=inactive ENABLED=not-found
+$ pgrep -x named
+PROCESS=named
+$ grep -rEhs 'allow-transfer|xfrnets' /etc/named.conf /etc/named.rfc1912.zones /etc/bind/ 2>/dev/null
+	allow-transfer { MASKED_IP_002; };
+==== U-50 END ====
+
+==== U-59 BEGIN ====
+$ systemctl is-active/is-enabled snmpd
+SERVICE=snmpd ACTIVE=active ENABLED=enabled
+$ pgrep -x snmpd
+PROCESS=snmpd
+$ snmpd.conf (community/user lines, secrets masked)
+SNMP=createUser USER=nmsadmin
+SNMP=rouser USER=nmsadmin
+==== U-59 END ====
+
+==== U-61 BEGIN ====
+$ systemctl is-active/is-enabled snmpd
+SERVICE=snmpd ACTIVE=active ENABLED=enabled
+$ pgrep -x snmpd
+PROCESS=snmpd
+$ snmpd.conf (community/user lines, secrets masked)
+SNMP=createUser USER=nmsadmin
+SNMP=rouser USER=nmsadmin
+==== U-61 END ====
 
 ==== U-64 BEGIN ====
 $ uname -r

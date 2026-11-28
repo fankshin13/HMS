@@ -1,4 +1,4 @@
-[START] OS=Linux HOSTNAME=ubuntu-01 DATE=2026-11-28T01:00:41+0000 SCRIPT=kisa_check_linux VERSION=1.1.0
+[START] OS=Linux HOSTNAME=ubuntu-01 DATE=2026-11-28T01:34:52+0000 SCRIPT=kisa_check_linux VERSION=1.2.0
 [INFO] DISTRO=Ubuntu 24.04.5 LTS
 [INFO] KERNEL=Linux 6.8.0-45-generic x86_64
 
@@ -33,6 +33,28 @@ $ ls -l /etc/shadow
 -rw-r----- 1 root shadow 1365 Nov 20 10:56 /etc/shadow
 ==== U-04 END ====
 
+==== U-05 BEGIN ====
+$ awk -F: '$3 == 0 {print "UID0=" $1}' /etc/passwd
+UID0=root
+==== U-05 END ====
+
+==== U-06 BEGIN ====
+$ grep -v "^#" /etc/pam.d/su
+auth       sufficient pam_rootok.so
+session       required   pam_env.so readenv=1
+session       required   pam_env.so readenv=1 envfile=/etc/default/locale
+session    optional   pam_mail.so nopen
+session    required   pam_limits.so
+@include common-auth
+@include common-account
+@include common-session
+$ stat /usr/bin/su
+FILE=/usr/bin/su OWNER=root GROUP=root MODE=4755
+$ awk -F: '$1 == "wheel" {print "WHEEL_MEMBERS=" ($4 == "" ? 0 : split($4, m, ","))}' /etc/group
+$ awk -F: '$3 >= 1000 && $3 < 65534 && $7 !~ /(nologin|false)$/ {n++} END {print "NORMAL_USERS=" n+0}' /etc/passwd
+NORMAL_USERS=1
+==== U-06 END ====
+
 ==== U-14 BEGIN ====
 $ bash -lc 'echo PATH=$PATH'
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -50,10 +72,97 @@ $ stat -c 'OWNER=%U MODE=%a FILE=%n' /etc/passwd
 OWNER=root MODE=644 FILE=/etc/passwd
 ==== U-16 END ====
 
+==== U-17 BEGIN ====
+$ find startup scripts (owner not root or writable by others)
+STARTUP_FILES=247
+==== U-17 END ====
+
 ==== U-18 BEGIN ====
 $ stat -c 'OWNER=%U MODE=%a FILE=%n' /etc/shadow
 OWNER=root MODE=640 FILE=/etc/shadow
 ==== U-18 END ====
+
+==== U-19 BEGIN ====
+$ stat /etc/hosts
+FILE=/etc/hosts OWNER=root GROUP=root MODE=644
+==== U-19 END ====
+
+==== U-20 BEGIN ====
+$ stat /etc/inetd.conf /etc/xinetd.conf
+MISSING=/etc/inetd.conf
+MISSING=/etc/xinetd.conf
+==== U-20 END ====
+
+==== U-21 BEGIN ====
+$ stat /etc/rsyslog.conf /etc/syslog.conf
+MISSING=/etc/rsyslog.conf
+MISSING=/etc/syslog.conf
+==== U-21 END ====
+
+==== U-22 BEGIN ====
+$ stat /etc/services
+FILE=/etc/services OWNER=root GROUP=root MODE=644
+==== U-22 END ====
+
+==== U-23 BEGIN ====
+$ find / -xdev -user root -type f -perm -4000 -o -perm -2000
+SPECIAL=/usr/sbin/pam_extrausers_chkpwd
+SPECIAL=/usr/sbin/unix_chkpwd
+SPECIAL=/usr/lib/polkit-1/polkit-agent-helper-1
+SPECIAL=/usr/lib/x86_64-linux-gnu/utempter/utempter
+SPECIAL=/usr/lib/dbus-1.0/dbus-daemon-launch-helper
+SPECIAL=/usr/bin/sudo
+SPECIAL=/usr/bin/chage
+SPECIAL=/usr/bin/chfn
+SPECIAL=/usr/bin/chsh
+SPECIAL=/usr/bin/expiry
+SPECIAL=/usr/bin/gpasswd
+SPECIAL=/usr/bin/mount
+SPECIAL=/usr/bin/newgrp
+SPECIAL=/usr/bin/passwd
+SPECIAL=/usr/bin/su
+SPECIAL=/usr/bin/umount
+==== U-23 END ====
+
+==== U-24 BEGIN ====
+$ stat <home>/.profile .bashrc ... (root and UID>=1000)
+USER=root FILE=/root/.profile OWNER=root GROUP=root MODE=644
+USER=root FILE=/root/.bashrc OWNER=root GROUP=root MODE=644
+USER=ubuntu FILE=/home/ubuntu/.profile OWNER=ubuntu GROUP=ubuntu MODE=644
+USER=ubuntu FILE=/home/ubuntu/.bashrc OWNER=ubuntu GROUP=ubuntu MODE=644
+USER=ubuntu FILE=/home/ubuntu/.bash_logout OWNER=ubuntu GROUP=ubuntu MODE=644
+==== U-24 END ====
+
+==== U-25 BEGIN ====
+$ find / -xdev -type f -perm -0002
+WORLD_WRITABLE=/var/tmp/legacy-app/shared.conf
+==== U-25 END ====
+
+==== U-26 BEGIN ====
+$ find /dev -type f (mqueue, shm 제외)
+==== U-26 END ====
+
+==== U-27 BEGIN ====
+$ systemctl is-active/is-enabled rsh.socket rlogin.socket rexec.socket
+SERVICE=rsh.socket ACTIVE=unknown ENABLED=not-found
+SERVICE=rlogin.socket ACTIVE=unknown ENABLED=not-found
+SERVICE=rexec.socket ACTIVE=unknown ENABLED=not-found
+$ inetd/xinetd rsh rlogin rexec shell login exec
+$ stat /etc/hosts.equiv <home>/.rhosts
+==== U-27 END ====
+
+==== U-28 BEGIN ====
+NOT_FOUND=/etc/hosts.deny
+NOT_FOUND=/etc/hosts.allow
+$ ufw status 2>/dev/null | head -n 30
+$ systemctl is-active/is-enabled firewalld
+SERVICE=firewalld ACTIVE=unknown ENABLED=not-found
+$ iptables -S INPUT
+IPTABLES_INPUT_RULES=0
+IPTABLES_INPUT_POLICY=ACCEPT
+$ nft list ruleset (input hook rules)
+NFT_INPUT_RULES=0
+==== U-28 END ====
 
 ==== U-34 BEGIN ====
 $ systemctl list-unit-files 2>/dev/null | grep -Ei 'finger'
@@ -77,6 +186,136 @@ $ systemctl list-unit-files 2>/dev/null | grep -Ei 'rsh|rlogin|rexec'
 $ grep -Hi 'disable' /etc/xinetd.d/rsh /etc/xinetd.d/rlogin /etc/xinetd.d/rexec 2>/dev/null
 $ ss -ltn 2>/dev/null | grep -E ':(512|513|514)\b'
 ==== U-36 END ====
+
+==== U-37 BEGIN ====
+$ stat crontab/at commands
+$ stat cron/at files
+KIND=conf FILE=/etc/cron.d/php OWNER=root GROUP=root MODE=644
+KIND=conf FILE=/etc/cron.d/e2scrub_all OWNER=root GROUP=root MODE=644
+==== U-37 END ====
+
+==== U-38 BEGIN ====
+$ inetd/xinetd echo discard daytime chargen
+$ ss -ltnu
+==== U-38 END ====
+
+==== U-39 BEGIN ====
+$ systemctl is-active/is-enabled nfs-server nfs-kernel-server
+SERVICE=nfs-server ACTIVE=unknown ENABLED=not-found
+SERVICE=nfs-kernel-server ACTIVE=unknown ENABLED=not-found
+$ pgrep -x nfsd rpc.mountd rpc.statd rpc.lockd
+==== U-39 END ====
+
+==== U-40 BEGIN ====
+$ systemctl is-active/is-enabled nfs-server nfs-kernel-server
+SERVICE=nfs-server ACTIVE=unknown ENABLED=not-found
+SERVICE=nfs-kernel-server ACTIVE=unknown ENABLED=not-found
+$ pgrep -x nfsd
+NOT_FOUND=/etc/exports
+$ stat /etc/exports
+MISSING=/etc/exports
+==== U-40 END ====
+
+==== U-41 BEGIN ====
+$ systemctl is-active/is-enabled autofs
+SERVICE=autofs ACTIVE=unknown ENABLED=not-found
+$ pgrep -x automount automountd
+==== U-41 END ====
+
+==== U-42 BEGIN ====
+$ inetd/xinetd rpc.cmsd rpc.ttdbserverd sadmind rusersd walld sprayd rstatd rpc.nisd rexd rpc.pcnfsd rpc.statd rpc.ypupdated rpc.rquotad kcms_server cachefsd
+$ pgrep -x rpc.cmsd rpc.ttdbserverd sadmind rpc.rusersd rpc.walld rpc.sprayd rpc.rstatd rpc.nisd rpc.rexd rpc.pcnfsd rpc.statd rpc.ypupdated rpc.rquotad kcms_server cachefsd
+==== U-42 END ====
+
+==== U-43 BEGIN ====
+$ systemctl is-active/is-enabled ypserv ypbind ypxfrd yppasswdd
+SERVICE=ypserv ACTIVE=unknown ENABLED=not-found
+SERVICE=ypbind ACTIVE=unknown ENABLED=not-found
+SERVICE=ypxfrd ACTIVE=unknown ENABLED=not-found
+SERVICE=yppasswdd ACTIVE=unknown ENABLED=not-found
+$ pgrep -x ypserv ypbind ypxfrd rpc.yppasswdd rpc.ypupdated
+==== U-43 END ====
+
+==== U-44 BEGIN ====
+$ systemctl is-active/is-enabled tftp.socket tftp tftpd-hpa
+SERVICE=tftp.socket ACTIVE=unknown ENABLED=not-found
+SERVICE=tftp ACTIVE=unknown ENABLED=not-found
+SERVICE=tftpd-hpa ACTIVE=unknown ENABLED=not-found
+$ inetd/xinetd tftp talk ntalk
+$ ss -ltnu
+==== U-44 END ====
+
+==== U-45 BEGIN ====
+$ systemctl is-active/is-enabled sendmail postfix exim4 exim
+SERVICE=sendmail ACTIVE=unknown ENABLED=not-found
+SERVICE=postfix ACTIVE=unknown ENABLED=not-found
+SERVICE=exim4 ACTIVE=unknown ENABLED=not-found
+SERVICE=exim ACTIVE=unknown ENABLED=not-found
+$ pgrep -x sendmail master exim exim4
+$ postconf -d mail_version 2>/dev/null
+$ exim -bV 2>/dev/null | head -n 1
+$ rpm -q sendmail postfix exim 2>/dev/null | grep -v 'not installed'
+$ apt list --upgradable (pattern: sendmail[^/]*|postfix[^/]*|exim4[^/]*)
+MAIL_PENDING_UPDATES=0
+==== U-45 END ====
+
+==== U-46 BEGIN ====
+$ systemctl is-active/is-enabled sendmail postfix exim4 exim
+SERVICE=sendmail ACTIVE=unknown ENABLED=not-found
+SERVICE=postfix ACTIVE=unknown ENABLED=not-found
+SERVICE=exim4 ACTIVE=unknown ENABLED=not-found
+SERVICE=exim ACTIVE=unknown ENABLED=not-found
+$ pgrep -x sendmail master exim exim4
+$ grep -E '^O PrivacyOptions' /etc/mail/sendmail.cf 2>/dev/null
+$ stat /usr/sbin/postsuper /usr/sbin/exiqgrep
+MISSING=/usr/sbin/postsuper
+MISSING=/usr/sbin/exiqgrep
+==== U-46 END ====
+
+==== U-47 BEGIN ====
+$ systemctl is-active/is-enabled sendmail postfix exim4 exim
+SERVICE=sendmail ACTIVE=unknown ENABLED=not-found
+SERVICE=postfix ACTIVE=unknown ENABLED=not-found
+SERVICE=exim4 ACTIVE=unknown ENABLED=not-found
+SERVICE=exim ACTIVE=unknown ENABLED=not-found
+$ pgrep -x sendmail master exim exim4
+$ postconf smtpd_relay_restrictions smtpd_recipient_restrictions mynetworks 2>/dev/null
+$ grep -Ec 'Relaying denied' /etc/mail/sendmail.cf 2>/dev/null | sed 's/^/SENDMAIL_RELAY_RULES=/'
+$ grep -Eh 'promiscuous_relay' /etc/mail/sendmail.mc /etc/mail/sendmail.cf 2>/dev/null
+$ grep -Ehs 'relay_from_hosts' /etc/exim4/exim4.conf.template /etc/exim4/update-exim4.conf.conf /etc/exim/exim.conf 2>/dev/null
+==== U-47 END ====
+
+==== U-49 BEGIN ====
+$ systemctl is-active/is-enabled named bind9
+SERVICE=named ACTIVE=unknown ENABLED=not-found
+SERVICE=bind9 ACTIVE=unknown ENABLED=not-found
+$ pgrep -x named
+$ named -v 2>/dev/null
+$ apt list --upgradable (pattern: bind9[^/]*|bind[^/]*)
+DNS_PENDING_UPDATES=0
+==== U-49 END ====
+
+==== U-50 BEGIN ====
+$ systemctl is-active/is-enabled named bind9
+SERVICE=named ACTIVE=unknown ENABLED=not-found
+SERVICE=bind9 ACTIVE=unknown ENABLED=not-found
+$ pgrep -x named
+$ grep -rEhs 'allow-transfer|xfrnets' /etc/named.conf /etc/named.rfc1912.zones /etc/bind/ 2>/dev/null
+==== U-50 END ====
+
+==== U-59 BEGIN ====
+$ systemctl is-active/is-enabled snmpd
+SERVICE=snmpd ACTIVE=unknown ENABLED=not-found
+$ pgrep -x snmpd
+$ grep -Ehs '^[[:space:]]*(rocommunity6?|rwcommunity6?|com2sec6?|createUser|rouser|rwuser)[[:space:]]' /etc/snmp/snmpd.conf /var/lib/net-snmp/snmpd.conf /var/lib/snmp/snmpd.conf 2>/dev/null | awk '{print $1, $2, $3, $4}'
+==== U-59 END ====
+
+==== U-61 BEGIN ====
+$ systemctl is-active/is-enabled snmpd
+SERVICE=snmpd ACTIVE=unknown ENABLED=not-found
+$ pgrep -x snmpd
+$ grep -Ehs '^[[:space:]]*(rocommunity6?|rwcommunity6?|com2sec6?|rouser|rwuser)[[:space:]]' /etc/snmp/snmpd.conf 2>/dev/null
+==== U-61 END ====
 
 ==== U-64 BEGIN ====
 $ uname -r

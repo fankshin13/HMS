@@ -47,6 +47,30 @@ describe("MaskingSession", () => {
     expect(maskedUserCount).toBe(1);
   });
 
+  it("masks the same account consistently in USER, OWNER, GROUP, home paths and admin members", () => {
+    const session = new MaskingSession(both);
+    const { processedText } = session.mask(
+      [
+        "USER=hong.gildong FILE=/home/hong.gildong/.bashrc OWNER=hong.gildong GROUP=hong.gildong MODE=644",
+        "USER=root FILE=/root/.bashrc OWNER=root GROUP=root MODE=644",
+        "FILE=/usr/bin/su OWNER=root GROUP=wheel MODE=4750",
+        "ADMIN_MEMBER=WIN-SRV-01\\kim.admin CLASS=User SOURCE=Local",
+        "ADMIN_MEMBER=WIN-SRV-01\\Administrator CLASS=User SOURCE=Local",
+      ].join("\n"),
+    );
+    expect(processedText).not.toContain("hong.gildong");
+    expect(processedText).not.toContain("kim.admin");
+    expect(processedText).toContain(
+      "USER=MASKED_USER_001 FILE=/home/MASKED_USER_001/.bashrc OWNER=MASKED_USER_001 GROUP=MASKED_USER_001",
+    );
+    expect(processedText).toContain("OWNER=root GROUP=root");
+    expect(processedText).toContain("GROUP=wheel MODE=4750");
+    expect(processedText).toContain(
+      "ADMIN_MEMBER=WIN-SRV-01\\MASKED_USER_002 CLASS=User",
+    );
+    expect(processedText).toContain("ADMIN_MEMBER=WIN-SRV-01\\Administrator");
+  });
+
   it("uses the same alias for the same value across files in one upload", () => {
     const session = new MaskingSession(both);
     const a = session.mask("[INFO] IP=192.168.1.50/24").processedText;

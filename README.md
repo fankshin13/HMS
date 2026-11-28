@@ -60,7 +60,9 @@ Supabase 프로젝트 설정: Authentication → URL Configuration 의 Redirect 
 ## 자동 판정 엔진 (backend/modules)
 - `modules/parser/log_parser.py`: 표준 스크립트 결과를 구간 단위로 나누는 순수 파서. 어떤 입력에도 예외를 던지지 않고, 해석할 수 없는 줄은 줄 번호와 함께 오류 목록에 담습니다.
 - 기준: KISA 「2026 주요정보통신기반시설 기술적 취약점 분석·평가 방법 상세가이드」. Unix 67개·Windows 64개 항목의 기준표(이름·중요도·판단 기준·조치 방법)는 원문에서 추출해 `compliance_guidelines` 에 적재했습니다.
-- `modules/compliance/`: 자동 판정 규칙(`kisa_linux.py` U-01~04·14·15·16·18·34·35·36·64·66, `kisa_windows.py` W-01·02·04·05). 나머지 항목은 점검 스크립트 수집 범위를 넓히면서 추가합니다. 구간 안에 `RESULT=OK|VULNERABLE|N/A` 가 있으면 우선합니다. 근거가 부족하면 보수적으로 '취약'으로 판정하고 사유를 남깁니다.
+- `modules/compliance/`: 자동 판정 규칙. Unix 41개(중요도 '상' 40개 전부 + U-66), Windows 32개(중요도 '상' 31개 전부 + W-05)를 판정합니다. Unix: `kisa_linux.py`(v1.1 항목), `kisa_linux_files.py`·`kisa_linux_services.py`(v1.2 추가), Windows: `kisa_windows.py`, `kisa_windows_high.py`. 구간 안에 `RESULT=OK|VULNERABLE|N/A` 가 있으면 우선합니다. 근거가 부족하면 보수적으로 '취약'으로 판정하고 사유를 남깁니다. 업무상 필요 여부처럼 자동으로 알 수 없는 부분은 객관적 기준(90일 미접속, 패치 60일, 백신 서명 7일 등)으로 판정하며, 예외는 사유와 함께 판정을 변경합니다.
+- 규칙마다 근거를 수집하기 시작한 스크립트 버전(`since`)이 있어, 예전 버전 스크립트 결과는 수집된 항목만 판정하고 오류로 격리하지 않습니다. 스크립트 버전: Linux 1.2.0, Windows 1.1.0.
+- 비밀 값은 수집하지 않습니다(SNMP 커뮤니티 문자열·v3 비밀번호는 스크립트에서 가림). 업로더는 사설 IP와 계정명(`USER=`·`OWNER=`·`GROUP=`·`/home/<이름>`·`ADMIN_MEMBER=`)을 같은 가명으로 일관되게 치환해 소유자 비교 판정이 유지됩니다.
 - `modules/worker/`: `queued` 진단 차수를 선점해 `parsing → scoring → completed` 로 처리합니다(멱등, 로그 단위 커밋, 저장소 장애 시 `failed`). 형식이 깨진 로그는 `partial_error` 로 격리하고, 판정 가능한 항목은 저장합니다.
 - 실행: `cd backend && uv run python -m modules.worker` (대기열이 빌 때까지만 처리하려면 `--once`). 필요한 환경 변수는 `backend/.env.example` 참고.
 

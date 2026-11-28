@@ -39,6 +39,9 @@ def map_log(log: ParsedLog) -> MappedLog:
         return mapped
 
     for rule in RULES[log.os_type]:
+        if log.script_version is not None and log.script_version < rule.since:
+            # 이전 버전 스크립트는 이 항목의 근거를 수집하지 않으므로 판정하지 않는다(오류 아님)
+            continue
         section = log.sections.get(rule.section)
         if section is None:
             mapped.errors.append(

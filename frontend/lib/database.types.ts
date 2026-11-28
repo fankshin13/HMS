@@ -647,7 +647,8 @@ export type Database = {
         | "directory_file_management"
         | "service_management"
         | "patch_management"
-        | "log_management";
+        | "log_management"
+        | "security_management";
       compliance_risk_level: "high" | "medium" | "low";
       item_status: "good" | "vulnerable" | "na";
       os_family: "linux" | "windows";
@@ -797,6 +798,7 @@ export const Constants = {
         "service_management",
         "patch_management",
         "log_management",
+        "security_management",
       ],
       compliance_risk_level: ["high", "medium", "low"],
       item_status: ["good", "vulnerable", "na"],

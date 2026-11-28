@@ -56,6 +56,7 @@ class ComplianceCategory(StrEnum):
     SERVICE_MANAGEMENT = "service_management"
     PATCH_MANAGEMENT = "patch_management"
     LOG_MANAGEMENT = "log_management"
+    SECURITY_MANAGEMENT = "security_management"
 
 
 class ItemStatus(StrEnum):

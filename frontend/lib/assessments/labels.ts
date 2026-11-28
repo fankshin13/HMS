@@ -8,6 +8,7 @@ export const CATEGORY_LABELS: Record<Enums["compliance_category"], string> = {
   service_management: "서비스 관리",
   patch_management: "패치 관리",
   log_management: "로그 관리",
+  security_management: "보안 관리",
 };
 
 export const RISK_LABELS: Record<Enums["compliance_risk_level"], string> = {

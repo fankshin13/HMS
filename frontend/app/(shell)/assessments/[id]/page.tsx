@@ -49,6 +49,7 @@ const filtersSchema = z.object({
       "service_management",
       "patch_management",
       "log_management",
+      "security_management",
     ])
     .optional()
     .catch(undefined),

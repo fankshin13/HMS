@@ -1,4 +1,7 @@
-"""KISA Windows 서버 항목 판정 규칙 (표준 스크립트 kisa_check_windows.bat 의 출력 기준)."""
+"""KISA 2026 상세가이드 Windows 서버 항목 판정 규칙.
+
+표준 스크립트 kisa_check_windows.bat 출력 기준.
+"""
 
 import re
 

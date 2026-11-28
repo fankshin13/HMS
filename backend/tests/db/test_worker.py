@@ -103,7 +103,7 @@ def run_status(conn: psycopg.Connection, run: uuid.UUID) -> str:
 
 
 def test_run_judges_healthy_logs_and_quarantines_broken_ones(conn: psycopg.Connection) -> None:
-    damaged = HARDENED.replace("web-01", "web-02").replace("==== U-08 END ====\n", "")
+    damaged = HARDENED.replace("web-01", "web-02").replace("==== U-18 END ====\n", "")
     r = make_run(
         conn,
         [
@@ -126,8 +126,8 @@ def test_run_judges_healthy_logs_and_quarantines_broken_ones(conn: psycopg.Conne
             (r.run,),
         ).fetchall()
     )
-    assert per_host["ubuntu-01"] == 14 and per_host["web-01"] == 14 and per_host["WIN-SRV-01"] == 4
-    assert 0 < per_host["web-02"] < 14  # 손상된 자산도 판정 가능한 항목은 남긴다
+    assert per_host["ubuntu-01"] == 13 and per_host["web-01"] == 13 and per_host["WIN-SRV-01"] == 4
+    assert 0 < per_host["web-02"] < 13  # 손상된 자산도 판정 가능한 항목은 남긴다
 
     vulnerable = _one(
         conn,
@@ -145,7 +145,7 @@ def test_run_judges_healthy_logs_and_quarantines_broken_ones(conn: psycopg.Conne
             conn,
             "select auto_status::text || '/' || final_status::text from inspection_item_results i "
             "join assets a on a.id = i.asset_id "
-            "where a.hostname = 'ubuntu-01' and i.item_code = 'U-08' "
+            "where a.hostname = 'ubuntu-01' and i.item_code = 'U-18' "
             "and i.assessment_run_id = %s",
             (r.run,),
         )
@@ -163,7 +163,7 @@ def test_run_judges_healthy_logs_and_quarantines_broken_ones(conn: psycopg.Conne
         ("004.txt", "partial_error"),
     ]
     assert isinstance(quarantined[0][3], list) and any(
-        "U-08" in e["reason"] for e in quarantined[0][3]
+        "U-18" in e["reason"] for e in quarantined[0][3]
     )
     assert quarantined[1][3] == [{"line_number": 1, "reason": "시작 표시 없음", "raw_snippet": ""}]
     assert (
@@ -203,7 +203,7 @@ def test_storage_outage_marks_run_failed(conn: psycopg.Connection) -> None:
 def test_duplicate_host_in_one_run_is_quarantined(conn: psycopg.Connection) -> None:
     r = make_run(conn, [("ubuntu-01", "linux", UBUNTU), ("ubuntu-01", "linux", UBUNTU)])
     summary = run_assessment_parsing(conn, r.run, r.tenant, MemorySource(r.files))
-    assert (summary.results, summary.quarantined_logs) == (14, 1)
+    assert (summary.results, summary.quarantined_logs) == (13, 1)
 
 
 def test_requires_autocommit_connection(database_url: str) -> None:
@@ -227,6 +227,6 @@ def test_fifty_hosts_are_judged_well_within_180_seconds(conn: psycopg.Connection
     started = time.perf_counter()
     summary = run_assessment_parsing(conn, r.run, r.tenant, MemorySource(r.files))
     elapsed = time.perf_counter() - started
-    assert (summary.status, summary.results, summary.quarantined_logs) == ("scoring", 700, 0)
+    assert (summary.status, summary.results, summary.quarantined_logs) == ("scoring", 650, 0)
     assert elapsed < 180, elapsed
     print(f"50 hosts judged in {elapsed:.2f}s")

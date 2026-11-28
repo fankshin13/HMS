@@ -59,7 +59,8 @@ Supabase 프로젝트 설정: Authentication → URL Configuration 의 Redirect 
 
 ## 자동 판정 엔진 (backend/modules)
 - `modules/parser/log_parser.py`: 표준 스크립트 결과를 구간 단위로 나누는 순수 파서. 어떤 입력에도 예외를 던지지 않고, 해석할 수 없는 줄은 줄 번호와 함께 오류 목록에 담습니다.
-- `modules/compliance/`: KISA 항목별 결정론적 판정 규칙(`kisa_linux.py` U-01~08·19~21·42·43·72, `kisa_windows.py` W-01·02·04·05). 구간 안에 `RESULT=OK|VULNERABLE|N/A` 가 있으면 우선합니다. 근거가 부족하면 보수적으로 '취약'으로 판정하고 사유를 남깁니다.
+- 기준: KISA 「2026 주요정보통신기반시설 기술적 취약점 분석·평가 방법 상세가이드」. Unix 67개·Windows 64개 항목의 기준표(이름·중요도·판단 기준·조치 방법)는 원문에서 추출해 `compliance_guidelines` 에 적재했습니다.
+- `modules/compliance/`: 자동 판정 규칙(`kisa_linux.py` U-01~04·14·15·16·18·34·35·36·64·66, `kisa_windows.py` W-01·02·04·05). 나머지 항목은 점검 스크립트 수집 범위를 넓히면서 추가합니다. 구간 안에 `RESULT=OK|VULNERABLE|N/A` 가 있으면 우선합니다. 근거가 부족하면 보수적으로 '취약'으로 판정하고 사유를 남깁니다.
 - `modules/worker/`: `queued` 진단 차수를 선점해 `parsing → scoring` 으로 처리합니다(멱등, 로그 단위 커밋, 저장소 장애 시 `failed`). 형식이 깨진 로그는 `partial_error` 로 격리하고, 판정 가능한 항목은 저장합니다.
 - 실행: `cd backend && uv run python -m modules.worker` (대기열이 빌 때까지만 처리하려면 `--once`). 필요한 환경 변수는 `backend/.env.example` 참고.
 

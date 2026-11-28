@@ -1,4 +1,4 @@
-[START] OS=Linux HOSTNAME=ubuntu-01 DATE=2026-11-28T00:38:49+0000 SCRIPT=kisa_check_linux VERSION=1.0.0
+[START] OS=Linux HOSTNAME=ubuntu-01 DATE=2026-11-28T01:00:41+0000 SCRIPT=kisa_check_linux VERSION=1.1.0
 [INFO] DISTRO=Ubuntu 24.04.5 LTS
 [INFO] KERNEL=Linux 6.8.0-45-generic x86_64
 
@@ -16,6 +16,8 @@ $ grep -Eh 'pam_pwquality|pam_cracklib' /etc/pam.d/system-auth /etc/pam.d/passwo
 $ grep -E '^PASS_(MIN_LEN|MAX_DAYS|MIN_DAYS)' /etc/login.defs
 PASS_MAX_DAYS	99999
 PASS_MIN_DAYS	0
+$ grep -v "^#" /etc/security/pwhistory.conf
+$ grep -Eh 'pam_pwhistory|remember=' /etc/pam.d/system-auth /etc/pam.d/password-auth /etc/pam.d/common-password 2>/dev/null
 ==== U-02 END ====
 
 ==== U-03 BEGIN ====
@@ -31,49 +33,52 @@ $ ls -l /etc/shadow
 -rw-r----- 1 root shadow 1365 Nov 20 10:56 /etc/shadow
 ==== U-04 END ====
 
-==== U-05 BEGIN ====
+==== U-14 BEGIN ====
 $ bash -lc 'echo PATH=$PATH'
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 $ ls -ld /root
 drwx------ 16 root root 4096 Nov 27 23:53 /root
-==== U-05 END ====
+==== U-14 END ====
 
-==== U-06 BEGIN ====
+==== U-15 BEGIN ====
 $ find / -xdev \( -nouser -o -nogroup \) -print 2>/dev/null | head -n 50
 /var/tmp/orphan.dat
-==== U-06 END ====
+==== U-15 END ====
 
-==== U-07 BEGIN ====
+==== U-16 BEGIN ====
 $ stat -c 'OWNER=%U MODE=%a FILE=%n' /etc/passwd
 OWNER=root MODE=644 FILE=/etc/passwd
-==== U-07 END ====
+==== U-16 END ====
 
-==== U-08 BEGIN ====
+==== U-18 BEGIN ====
 $ stat -c 'OWNER=%U MODE=%a FILE=%n' /etc/shadow
 OWNER=root MODE=640 FILE=/etc/shadow
-==== U-08 END ====
+==== U-18 END ====
 
-==== U-19 BEGIN ====
+==== U-34 BEGIN ====
 $ systemctl list-unit-files 2>/dev/null | grep -Ei 'finger'
 $ grep -Els 'finger' /etc/inetd.conf /etc/xinetd.d/* 2>/dev/null
 $ ss -ltn 2>/dev/null | grep -E ':79\b'
-==== U-19 END ====
+==== U-34 END ====
 
-==== U-20 BEGIN ====
+==== U-35 BEGIN ====
 $ grep -E '^(ftp|anonymous):' /etc/passwd | cut -d: -f1 | sed 's/^/ACCOUNT=/'
 NOT_FOUND=/etc/vsftpd.conf
 NOT_FOUND=/etc/vsftpd/vsftpd.conf
 $ grep -Ei '<Anonymous' /etc/proftpd/proftpd.conf /etc/proftpd.conf 2>/dev/null
 $ systemctl is-active vsftpd proftpd 2>/dev/null
-==== U-20 END ====
+$ grep -Ei '^[[:space:]]*(guest ok|public|map to guest)[[:space:]]*=' /etc/samba/smb.conf 2>/dev/null
+$ systemctl is-active smb smbd nmb 2>/dev/null
+$ grep -Ev '^[[:space:]]*(#|$)' /etc/exports 2>/dev/null
+==== U-35 END ====
 
-==== U-21 BEGIN ====
+==== U-36 BEGIN ====
 $ systemctl list-unit-files 2>/dev/null | grep -Ei 'rsh|rlogin|rexec'
 $ grep -Hi 'disable' /etc/xinetd.d/rsh /etc/xinetd.d/rlogin /etc/xinetd.d/rexec 2>/dev/null
 $ ss -ltn 2>/dev/null | grep -E ':(512|513|514)\b'
-==== U-21 END ====
+==== U-36 END ====
 
-==== U-42 BEGIN ====
+==== U-64 BEGIN ====
 $ uname -r
 6.8.0-45-generic
 $ grep -h '^Start-Date' /var/log/apt/history.log 2>/dev/null | tail -n 5
@@ -82,17 +87,12 @@ Start-Date: 2026-11-27  16:11:07
 Start-Date: 2026-11-27  23:55:04
 $ apt list --upgradable 2>/dev/null | grep -ci security | sed 's/^/PENDING_SECURITY_UPDATES=/'
 PENDING_SECURITY_UPDATES=33
-==== U-42 END ====
+==== U-64 END ====
 
-==== U-43 BEGIN ====
-MANUAL_REVIEW=로그 검토·보고 절차는 담당자 인터뷰로 확인
-$ ls -l /var/log/secure /var/log/auth.log /var/log/messages /var/log/syslog 2>/dev/null
-==== U-43 END ====
-
-==== U-72 BEGIN ====
+==== U-66 BEGIN ====
 $ systemctl is-active rsyslog syslog-ng 2>/dev/null
 NOT_FOUND=/etc/rsyslog.conf
 $ grep -Ehv '^[[:space:]]*(#|$)' /etc/rsyslog.d/*.conf 2>/dev/null
-==== U-72 END ====
+==== U-66 END ====
 
 [END]
